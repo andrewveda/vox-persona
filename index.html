@@ -631,11 +631,21 @@ function tokenize(text){
 }
 
 // ─── SPEECH RECOGNITION ──────────────────────────────────────────────────────
-// Two completely separate jobs:
-//   Interim results  → transcript strip display ONLY  (WhatsApp streaming feel)
-//   Final results    → word highlighting ONLY          (accurate matching)
-// They never cross — smooth display AND accurate highlights.
-let _finalBuffer=''; // accumulates confirmed finals for this line's display
+// Mobile-first design: Chrome mobile fires isFinal rarely (sometimes only once
+// at the very end), so we MUST use interim for responsive highlighting.
+//
+// Strategy — one-way ratchet:
+//   • Interim  → word highlights + transcript strip (fast, responsive)
+//   • Final    → locks in confirmed words, advances the ratchet floor
+//   • Ratchet  → once a word lights up gold it can NEVER go dark again
+//                so interim flicker never causes backwards movement
+//
+// The ratchet floor (_confirmedIdx) marks the last word locked by a final.
+// Interim matching always starts from _confirmedIdx, never from behind it.
+
+let _finalBuffer   = ''; // display text accumulated from finals
+let _confirmedIdx  = -1; // ratchet floor — words ≤ this index are locked forever
+let _interimTimer  = null; // debounce handle for interim highlighting
 
 function buildRecognition(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -643,11 +653,24 @@ function buildRecognition(){
   r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
 
   r.onresult=e=>{
-    // Pass 1: collect interim text for the live display strip ONLY
     let interimText='';
+    let hasFinal=false;
+
     for(let i=e.resultIndex;i<e.results.length;i++){
-      if(!e.results[i].isFinal) interimText+=e.results[i][0].transcript;
+      if(e.results[i].isFinal){
+        hasFinal=true;
+        // Collect all N-best alternatives for ESL coverage
+        const alts=[];
+        for(let k=0;k<e.results[i].length;k++) alts.push(e.results[i][k].transcript);
+        // Lock in confirmed words — advance ratchet floor
+        processAndLock(alts.join(' '));
+        _finalBuffer=(_finalBuffer+' '+e.results[i][0].transcript).trim();
+      } else {
+        interimText+=e.results[i][0].transcript;
+      }
     }
+
+    // Always update transcript strip with finals + live interim
     const displayText=(_finalBuffer+(interimText?' '+interimText:'')).trim();
     if(displayText){
       $transcriptStrip.textContent=displayText;
@@ -655,18 +678,69 @@ function buildRecognition(){
       $transcriptStrip.scrollTop=$transcriptStrip.scrollHeight;
     }
 
-    // Pass 2: final results only → word matching (never interim)
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(!e.results[i].isFinal) continue;
-      const alts=[];
-      for(let k=0;k<e.results[i].length;k++) alts.push(e.results[i][k].transcript);
-      _finalBuffer=(_finalBuffer+' '+e.results[i][0].transcript).trim();
-      processTranscript(alts.join(' '));
+    // Interim word highlighting — debounced 80ms to avoid per-keystroke thrash
+    // Skip if a final just ran (processAndLock already did the work)
+    if(interimText && !hasFinal){
+      clearTimeout(_interimTimer);
+      _interimTimer=setTimeout(()=>processInterim(interimText), 80);
     }
   };
+
   r.onerror=e=>{ if(e.error!=='no-speech') stopListening(); };
-  r.onend=()=>{ if(isListening){ try{r.start();}catch(_){} } };
+  r.onend  =()=>{ if(isListening){ try{r.start();}catch(_){} } };
   return r;
+}
+
+// Called on final chunks — locks words in permanently, advances ratchet floor
+function processAndLock(transcript){
+  clearTimeout(_interimTimer);
+  const spoken=normalise(transcript);
+  const wordToks=lineTokens.filter(t=>t.type==='word');
+  let searchFrom=_confirmedIdx+1;
+
+  for(const sp of spoken){
+    for(let j=searchFrom;j<wordToks.length;j++){
+      const res=matchWord(sp,wordToks[j].clean);
+      if(res==='heard'||res==='close'){
+        if(!heardSet.has(j)&&!closeSet.has(j)){
+          if(res==='heard') heardSet.add(j); else closeSet.add(j);
+          setWordClass(j, res==='heard'?'w-heard':'w-close');
+        }
+        if(j>lastHeardIdx) lastHeardIdx=j;
+        if(j>_confirmedIdx) _confirmedIdx=j; // advance ratchet floor
+        searchFrom=j+1; break;
+      }
+    }
+  }
+}
+
+// Called on interim chunks — highlights speculatively but respects ratchet floor
+// (never touches words already confirmed, never moves lastHeardIdx backwards)
+function processInterim(transcript){
+  const spoken=normalise(transcript);
+  const wordToks=lineTokens.filter(t=>t.type==='word');
+  // Start from the ratchet floor — never go behind confirmed words
+  let searchFrom=_confirmedIdx+1;
+  let interimPeak=_confirmedIdx; // track how far this interim run gets
+
+  for(const sp of spoken){
+    for(let j=searchFrom;j<wordToks.length;j++){
+      const res=matchWord(sp,wordToks[j].clean);
+      if(res==='heard'||res==='close'){
+        if(!heardSet.has(j)&&!closeSet.has(j)){
+          // Speculative highlight — only gold (heard), no amber on interim
+          // to keep visual noise low
+          if(res==='heard'||res==='close'){
+            heardSet.add(j);
+            setWordClass(j,'w-heard');
+          }
+        }
+        if(j>interimPeak) interimPeak=j;
+        if(j>lastHeardIdx) lastHeardIdx=j;
+        searchFrom=j+1; break;
+      }
+    }
+  }
 }
 
 function startListening(){
@@ -677,7 +751,7 @@ function startListening(){
   if(lb){lb.textContent='▶ Listen first';lb.classList.remove('speaking');}
 
   isListening=true; lineStartTime=Date.now();
-  _finalBuffer=''; // reset accumulated transcript for this attempt
+  _finalBuffer=''; _confirmedIdx=-1; clearTimeout(_interimTimer);
   $micBtn.className='mic-btn listening'; $micBtn.textContent='⏹';
   $waveform.classList.add('active');
   $transcriptStrip.textContent=''; $transcriptStrip.classList.add('live');
@@ -700,26 +774,8 @@ function stopListening(finalize=true){
 }
 
 // ─── WORD MATCHING (ESL-friendly) ────────────────────────────────────────────
-// Called ONLY with confirmed final results — no interim noise
-function processTranscript(transcript){
-  const spoken=transcript.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(Boolean);
-  const wordToks=lineTokens.filter(t=>t.type==='word');
-
-  let searchFrom=lastHeardIdx+1;
-  for(const sp of spoken){
-    for(let j=searchFrom;j<wordToks.length;j++){
-      const result=matchWord(sp, wordToks[j].clean);
-      if(result==='heard'||result==='close'){
-        if(!heardSet.has(j)&&!closeSet.has(j)){
-          if(result==='heard') heardSet.add(j);
-          else closeSet.add(j);
-          setWordClass(j, result==='heard'?'w-heard':'w-close');
-          if(j>lastHeardIdx) lastHeardIdx=j;
-        }
-        searchFrom=j+1; break;
-      }
-    }
-  }
+function normalise(transcript){
+  return transcript.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(Boolean);
 }
 
 function matchWord(spoken, expected){
@@ -869,7 +925,8 @@ function rereadLine(){
   }
   const col=document.querySelector(`#row-${currentLine} .bubble-col`);
   if(col) col.querySelectorAll('.line-feedback,.playback-row').forEach(el=>el.remove());
-  heardSet.clear(); closeSet.clear(); lastHeardIdx=-1;
+  heardSet.clear(); closeSet.clear(); lastHeardIdx=-1; _confirmedIdx=-1;
+  clearTimeout(_interimTimer);
   $rereadBtn.style.display='none'; $nextBtn.style.display='none';
   $skipBtn.style.display='inline-flex';
   startListening();
