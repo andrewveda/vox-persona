@@ -597,7 +597,23 @@ function buildRecognition(){
   const r=new SR();
   r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
 
-  r.onresult=e=>{
+  r.r.onresult = (e) => {
+  let text = '';
+
+  for (let i = e.resultIndex; i < e.results.length; i++) {
+    text += e.results[i][0].transcript + ' ';
+  }
+
+  text = text.trim();
+
+  // 👇 THIS is the key visual fix
+  $transcriptStrip.textContent = text;
+  $transcriptStrip.style.display = 'block';
+
+  console.log("Heard:", text); // optional debug
+
+  processTranscript(text, false);
+};=e=>{
     let interim='';
     for(let i=e.resultIndex;i<e.results.length;i++){
       // collect all alternatives for better ESL coverage
