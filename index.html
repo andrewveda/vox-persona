@@ -598,7 +598,29 @@ function buildRecognition(){
   r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
 
   r.onresult=e=>{
-    let interim='';
+    let interim = '';
+let finalText = '';
+
+for (let i = e.resultIndex; i < e.results.length; i++) {
+  const transcript = e.results[i][0].transcript;
+
+  if (e.results[i].isFinal) {
+    finalText += transcript + ' ';
+    processTranscript(transcript, true);
+  } else {
+    interim += transcript + ' ';
+    processTranscript(transcript, false);
+  }
+}
+
+// 👇 THIS IS THE FIX
+const displayText = (finalText + interim).trim();
+
+if (displayText) {
+  $transcriptStrip.textContent = displayText;
+  $transcriptStrip.classList.add('live');
+  $transcriptStrip.style.display = 'block';
+}
     for(let i=e.resultIndex;i<e.results.length;i++){
       // collect all alternatives for better ESL coverage
       const alts=[]; for(let k=0;k<e.results[i].length;k++) alts.push(e.results[i][k].transcript);
