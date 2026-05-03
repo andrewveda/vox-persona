@@ -1,279 +1,1202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Trainer</title>
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Story Quest — Live Reading</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500&family=Cormorant:ital,wght@1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <style>
+:root {
+  --white:        #ffffff;
+  --off-white:    #fafaf9;
+  --paper:        #f7f5f2;
+  --border:       #e8e3dc;
+  --border-soft:  #f0ece6;
+  --ink:          #1c1916;
+  --ink-mid:      #4a4540;
+  --ink-light:    #9a9188;
+  --rose-gold:    #c4956a;
+  --rose-gold-lt: #d4a87a;
+  --rose-gold-dk: #a07550;
+  --rose-glow:    rgba(196,149,106,0.12);
+  --rose-pale:    rgba(196,149,106,0.07);
+  --sage:         #7a9b7a;
+  --sage-pale:    rgba(122,155,122,0.1);
+  --error:        #c0604a;
+  --warn:         #d49a3a;
+  --shadow-sm:    0 1px 4px rgba(28,25,22,0.06);
+  --shadow-md:    0 4px 24px rgba(28,25,22,0.08);
+  --shadow-lg:    0 12px 48px rgba(28,25,22,0.1);
+  --radius:       14px;
+  --radius-sm:    8px;
+  --transition:   cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* emotion colours */
+  --emo-thoughtful: #7a8fb5;
+  --emo-playful:    #c4956a;
+  --emo-wise:       #9b8b6e;
+  --emo-curious:    #7aa58b;
+  --emo-earnest:    #a07550;
+  --emo-hopeful:    #8fa07a;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
 body {
-  font-family: system-ui;
-  background: #fafaf9;
-  padding: 2rem;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--off-white);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(196,149,106,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(196,149,106,0.04) 0%, transparent 55%);
 }
 
-.container {
-  max-width: 700px;
-  margin: auto;
-}
+/* ── PROGRESS BAR ── */
+.progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: var(--border-soft); z-index: 100; display: none; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--rose-gold-dk), var(--rose-gold), var(--rose-gold-lt)); transition: width 0.6s var(--transition); }
 
-.bubble {
-  background: white;
-  padding: 1rem;
-  border-radius: 12px;
-  line-height: 1.7;
-  font-size: 1.2rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
+/* ── TOP STRIP ── */
+.top-strip { position: fixed; top: 0; left: 0; right: 0; z-index: 50; background: rgba(255,255,255,0.92); border-bottom: 1px solid var(--border-soft); backdrop-filter: blur(20px); padding: 0.6rem 1.5rem; display: none; }
+.top-strip-inner { max-width: 680px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+.stat-pill { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.04em; color: var(--ink-mid); background: var(--paper); border: 1px solid var(--border); border-radius: 20px; padding: 0.28rem 0.75rem; transition: all 0.3s ease; }
+.stat-pill.pulse { animation: pillPulse 0.35s ease; }
+@keyframes pillPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
 
-.word {
-  transition: 0.2s;
-}
+.container { position: relative; z-index: 1; width: 100%; min-height: 100vh; }
 
-.word.current {
-  background: #ffe0c7;
-}
+/* ══════════════════════════════════
+   NAME FORM
+══════════════════════════════════ */
+#nameForm { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem 1.5rem; animation: entryFade 0.9s var(--transition) forwards; }
+@keyframes entryFade { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
 
-.word.correct {
-  color: green;
-  font-weight: bold;
-}
+.form-card { background: var(--white); border: 1px solid var(--border); border-radius: 20px; padding: 3.5rem 3rem 3rem; max-width: 420px; width: 100%; box-shadow: var(--shadow-lg); position: relative; overflow: hidden; }
+.form-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background: linear-gradient(90deg, transparent 5%, var(--rose-gold) 40%, var(--rose-gold-lt) 60%, transparent 95%); opacity:0.7; }
+.form-eyebrow { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rose-gold); text-align: center; margin-bottom: 0.75rem; }
+.form-title { font-family: 'Cormorant Garamond', serif; font-size: 2.4rem; font-weight: 300; text-align: center; color: var(--ink); line-height: 1.15; margin-bottom: 0.3rem; }
+.form-subtitle { font-family: 'Cormorant', serif; font-style: italic; font-size: 1rem; font-weight: 300; color: var(--ink-light); text-align: center; margin-bottom: 2.5rem; }
+.form-rule { width: 40px; height: 1px; background: linear-gradient(90deg, transparent, var(--rose-gold), transparent); margin: 0 auto 2rem; }
 
-.word.wrong {
-  color: red;
-}
+.field-label { display: block; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-light); margin-bottom: 0.5rem; margin-top: 1.2rem; }
+.field-label:first-of-type { margin-top: 0; }
+#nameInput, #departmentSelect { display: block; width: 100%; padding: 0.8rem 1rem; font-size: 0.95rem; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--off-white); color: var(--ink); transition: all 0.2s ease; outline: none; -webkit-appearance: none; appearance: none; }
+#departmentSelect { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239a9188' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem; }
+#nameInput:focus, #departmentSelect:focus { border-color: var(--rose-gold); background: var(--white); box-shadow: 0 0 0 3px rgba(196,149,106,0.1); }
 
-#micStatus {
-  margin-top: 12px;
-  font-size: 14px;
-  color: #555;
-}
+.mic-check { margin-top: 1.5rem; padding: 0.9rem 1rem; background: var(--paper); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.75rem; }
+.mic-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.3s ease; }
+.mic-dot.ok   { background: var(--sage); animation: micPulse 1.5s ease-in-out infinite; }
+.mic-dot.fail { background: var(--error); }
+@keyframes micPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:0.7} }
+.mic-text { font-size: 0.78rem; color: var(--ink-light); line-height: 1.4; }
 
-#liveText {
-  margin-top: 6px;
-  font-size: 14px;
-  color: #888;
-}
+#startBtn { width: 100%; margin-top: 2rem; padding: 0.95rem; font-size: 0.85rem; font-family: 'DM Sans', sans-serif; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; background: var(--ink); border: none; border-radius: var(--radius-sm); cursor: pointer; color: var(--white); transition: all 0.25s ease; }
+#startBtn:hover { background: #2e2a26; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+#startBtn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
-button {
-  margin-top: 1.5rem;
-  padding: 0.7rem 1.5rem;
-  border: none;
-  border-radius: 999px;
-  background: black;
-  color: white;
-  cursor: pointer;
+/* ══════════════════════════════════
+   MAIN QUIZ AREA
+══════════════════════════════════ */
+#quizContent { display: none; }
+.chat-area { padding: 5.5rem 1.5rem 10rem; display: flex; flex-direction: column; gap: 0; max-width: 660px; margin: 0 auto; }
+
+/* ── BUBBLE ROWS ── */
+.bubble-row { display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; opacity: 0; transform: translateY(14px); animation: bubbleReveal 0.5s var(--transition) forwards; padding: 0.5rem 0; }
+@keyframes bubbleReveal { to{opacity:1;transform:translateY(0)} }
+.bubble-row.left  { flex-direction: row; padding-right: 4rem; }
+.bubble-row.right { flex-direction: row-reverse; padding-left: 4rem; }
+.bubble-row.narrator { justify-content: center; padding: 0.6rem 2rem; }
+.bubble-row.active-line { opacity: 1; transform: translateY(0); }
+
+.avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; margin-top: 0.25rem; border: 1px solid var(--border); background: var(--white); box-shadow: var(--shadow-sm); }
+.left .avatar  { background: linear-gradient(135deg, #f7f0e8, #eedfc8); }
+.right .avatar { background: linear-gradient(135deg, #eef4ee, #ddeedd); }
+.bubble-col { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.speaker-name { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); margin-bottom: 0.3rem; }
+.right .speaker-name { text-align: right; }
+
+/* ── EMOTION TAG ── */
+.emotion-tag { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.62rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 20px; padding: 0.2rem 0.65rem; margin-bottom: 0.45rem; border: 1px solid; opacity: 0.85; font-family: 'DM Sans', sans-serif; width: fit-content; }
+.right .emotion-tag { align-self: flex-end; }
+
+/* ── VOICE STYLE CUE ── */
+.voice-cue { font-family: 'Cormorant', serif; font-style: italic; font-size: 0.78rem; color: var(--ink-light); margin-bottom: 0.35rem; opacity: 0.8; }
+.right .voice-cue { text-align: right; }
+
+.bubble { padding: 0.9rem 1.15rem; border-radius: 16px; font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 400; line-height: 1.85; color: var(--ink); position: relative; word-break: break-word; }
+.left .bubble  { background: var(--white); border: 1px solid var(--border); border-top-left-radius: 4px; box-shadow: var(--shadow-sm); }
+.right .bubble { background: linear-gradient(135deg, #f2f8f2, #e8f2e8); border: 1px solid rgba(122,155,122,0.2); border-top-right-radius: 4px; box-shadow: var(--shadow-sm); }
+
+/* ── ACTIVE (CURRENT LINE) BUBBLE ── */
+.bubble-row.active-line .bubble { box-shadow: 0 0 0 2px var(--rose-gold), var(--shadow-md); }
+.bubble-row.active-line.left  .bubble { box-shadow: 0 0 0 2px var(--rose-gold-lt), var(--shadow-md); }
+.bubble-row.active-line.right .bubble { box-shadow: 0 0 0 2px var(--sage),          var(--shadow-md); }
+
+/* ── WORDS ── */
+.word { display: inline; transition: all 0.15s ease; border-radius: 3px; padding: 0 1px; cursor: default; }
+.word.w-pending  { color: var(--ink); }
+.word.w-heard    { color: var(--rose-gold-dk); background: rgba(196,149,106,0.12); font-weight: 600; animation: wordLight 0.3s var(--transition); }
+@keyframes wordLight { from{transform:scale(1.08);background:rgba(196,149,106,0.3)} to{transform:scale(1);background:rgba(196,149,106,0.12)} }
+.word.w-missed   { color: var(--error); text-decoration: underline wavy var(--error); text-underline-offset: 3px; opacity: 0.8; }
+.word.w-done     { color: var(--ink-light); }
+
+/* ── LINE FEEDBACK STRIP ── */
+.line-feedback { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.55rem; padding: 0.55rem 0.8rem; background: var(--paper); border: 1px solid var(--border-soft); border-radius: 8px; font-family: 'DM Sans', sans-serif; animation: feedRise 0.35s var(--transition) forwards; opacity: 0; }
+@keyframes feedRise { to{opacity:1;transform:translateY(0)} from{opacity:0;transform:translateY(6px)} }
+.fb-chip { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.67rem; font-weight: 500; letter-spacing: 0.05em; border-radius: 20px; padding: 0.22rem 0.65rem; border: 1px solid; }
+.fb-chip.perfect  { color: var(--sage);         border-color: rgba(122,155,122,0.3);  background: rgba(122,155,122,0.07); }
+.fb-chip.missed   { color: var(--error);         border-color: rgba(192,96,74,0.25);   background: rgba(192,96,74,0.06); }
+.fb-chip.pace-ok  { color: var(--rose-gold-dk);  border-color: rgba(196,149,106,0.3);  background: rgba(196,149,106,0.07); }
+.fb-chip.pace-fast{ color: var(--warn);           border-color: rgba(212,154,58,0.3);   background: rgba(212,154,58,0.07); }
+.fb-chip.pace-slow{ color: var(--emo-thoughtful); border-color: rgba(122,143,181,0.3);  background: rgba(122,143,181,0.07); }
+
+/* ── MIC PANEL (bottom) ── */
+.mic-panel { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; pointer-events: none; }
+.mic-inner { max-width: 660px; margin: 0 auto; padding: 0.75rem 1.5rem 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.7rem; }
+
+.transcript-strip { pointer-events: none; width: 100%; max-width: 500px; min-height: 2.4rem; background: rgba(255,255,255,0.95); border: 1px solid var(--border); border-radius: 50px; padding: 0.5rem 1.2rem; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1rem; color: var(--ink-light); text-align: center; backdrop-filter: blur(12px); box-shadow: var(--shadow-sm); display: none; transition: all 0.3s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.transcript-strip.live { display: block; border-color: var(--rose-gold); color: var(--ink-mid); }
+
+.mic-btn-row { pointer-events: all; display: flex; gap: 0.7rem; align-items: center; }
+
+.mic-btn { width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transition: all 0.2s var(--transition); box-shadow: var(--shadow-md); flex-shrink: 0; }
+.mic-btn.idle    { background: var(--ink); color: var(--white); }
+.mic-btn.idle:hover { background: #2e2a26; transform: scale(1.05); }
+.mic-btn.listening { background: var(--rose-gold); color: var(--white); animation: micRing 1.5s ease-in-out infinite; }
+@keyframes micRing {
+  0%   { box-shadow: 0 0 0 0   rgba(196,149,106,0.5), var(--shadow-md); }
+  70%  { box-shadow: 0 0 0 18px rgba(196,149,106,0),   var(--shadow-md); }
+  100% { box-shadow: 0 0 0 0   rgba(196,149,106,0),    var(--shadow-md); }
 }
+.mic-btn.done { background: var(--sage); color: var(--white); }
+
+.action-btn { padding: 0.55rem 1.3rem; font-size: 0.72rem; font-family: 'DM Sans', sans-serif; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 50px; border: 1px solid var(--border); cursor: pointer; background: var(--white); color: var(--ink-mid); transition: all 0.2s ease; box-shadow: var(--shadow-sm); }
+.action-btn:hover { border-color: var(--rose-gold); color: var(--ink); }
+.action-btn.reread { border-color: var(--warn); color: var(--warn); }
+.action-btn.skip   { border-color: var(--border); }
+.action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.line-prompt { font-family: 'DM Sans', sans-serif; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); text-align: center; }
+
+/* ── WAVEFORM VISUALISER ── */
+.waveform { display: none; align-items: center; justify-content: center; gap: 3px; height: 24px; }
+.waveform.active { display: flex; }
+.waveform-bar { width: 3px; border-radius: 2px; background: var(--rose-gold); animation: waveBounce 0.6s ease-in-out infinite alternate; transform-origin: bottom; }
+.waveform-bar:nth-child(1){animation-delay:0s;   height:6px}
+.waveform-bar:nth-child(2){animation-delay:0.08s;height:12px}
+.waveform-bar:nth-child(3){animation-delay:0.16s;height:18px}
+.waveform-bar:nth-child(4){animation-delay:0.24s;height:22px}
+.waveform-bar:nth-child(5){animation-delay:0.16s;height:18px}
+.waveform-bar:nth-child(6){animation-delay:0.08s;height:12px}
+.waveform-bar:nth-child(7){animation-delay:0s;   height:6px}
+@keyframes waveBounce { from{transform:scaleY(0.3)} to{transform:scaleY(1.2)} }
+
+/* ══════════════════════════════════
+   SCORE CARD
+══════════════════════════════════ */
+@keyframes cardReveal { from{opacity:0;transform:translateY(20px) scale(0.98)} to{opacity:1;transform:translateY(0) scale(1)} }
+.score-wrapper { max-width: 520px; margin: 2rem auto 1rem; padding: 0 1rem; animation: cardReveal 0.7s var(--transition) forwards; }
+
+.score-trophy-band { background: var(--ink); border-radius: 20px 20px 0 0; padding: 2.4rem 2.5rem 2.2rem; text-align: center; position: relative; overflow: hidden; }
+.score-trophy-band::before { content:''; position:absolute; inset:0; background: radial-gradient(ellipse 70% 80% at 50% -10%, rgba(196,149,106,0.22) 0%, transparent 65%); pointer-events:none; }
+.score-status-pill { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.65rem; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--rose-gold); background: rgba(196,149,106,0.12); border: 1px solid rgba(196,149,106,0.25); border-radius: 20px; padding: 0.3rem 0.9rem; margin-bottom: 1.1rem; }
+.score-main-emoji { font-size: 3.4rem; line-height: 1; margin-bottom: 0.75rem; display: block; filter: drop-shadow(0 0 20px rgba(196,149,106,0.4)); animation: emojiFloat 0.6s var(--transition) 0.2s both; }
+@keyframes emojiFloat { from{opacity:0;transform:scale(0.6) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.score-headline { font-family: 'Cormorant Garamond', serif; font-size: 2.9rem; font-weight: 300; color: var(--white); line-height: 1; margin-bottom: 0.3rem; }
+.score-tagline  { font-family: 'Cormorant', serif; font-style: italic; font-weight: 300; font-size: 1rem; color: rgba(255,255,255,0.4); }
+
+.score-stats-band { background: var(--white); border-left: 1px solid var(--border); border-right: 1px solid var(--border); padding: 1.6rem 2rem; }
+.score-name-row { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 1rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--border-soft); }
+.score-player-name { font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 500; color: var(--ink); }
+.score-player-dept { font-family: 'DM Sans', sans-serif; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-light); }
+
+.score-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+.score-cell { background: var(--paper); border: 1px solid var(--border-soft); border-radius: 10px; padding: 0.85rem 0.7rem; text-align: center; }
+.score-cell-val { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 500; line-height: 1; margin-bottom: 0.25rem; display: block; }
+.score-cell-val.good { color: var(--sage); }
+.score-cell-val.bad  { color: var(--error); }
+.score-cell-val.time { color: var(--rose-gold-dk); }
+.score-cell-label { font-family: 'DM Sans', sans-serif; font-size: 0.6rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-light); }
+
+.score-detail-table { margin-top: 1rem; width: 100%; border-collapse: collapse; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; }
+.score-detail-table th { font-size: 0.6rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); padding: 0.3rem 0.5rem; text-align: left; border-bottom: 1px solid var(--border-soft); }
+.score-detail-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border-soft); color: var(--ink-mid); vertical-align: middle; }
+.score-detail-table td:first-child { font-family: 'Cormorant Garamond', serif; font-size: 0.88rem; }
+.score-detail-table .td-missed { color: var(--error); font-size: 0.7rem; }
+.score-detail-table .td-pace   { font-size: 0.7rem; }
+.score-detail-table .td-ok     { color: var(--sage); }
+
+.score-next-band { background: var(--ink); border-left: 1px solid rgba(255,255,255,0.04); border-right: 1px solid rgba(255,255,255,0.04); padding: 1.5rem 1.8rem 1.8rem; position: relative; overflow: hidden; }
+.score-next-band::before { content:''; position:absolute; inset:0; background: radial-gradient(ellipse 80% 120% at 50% 100%, rgba(196,149,106,0.15) 0%, transparent 65%); pointer-events:none; }
+.score-next-eyebrow { font-family: 'DM Sans', sans-serif; font-size: 0.62rem; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.3); text-align: center; margin-bottom: 0.9rem; }
+.next-story-btn { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 1.2rem 1.2rem 1.2rem 1.6rem; background: linear-gradient(135deg, #c4956a 0%, #d4a87a 50%, #c4956a 100%); border: none; border-radius: 14px; cursor: pointer; text-decoration: none; transition: all 0.3s var(--transition); box-shadow: 0 6px 28px rgba(196,149,106,0.5); }
+.next-story-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(196,149,106,0.6); }
+.next-story-text { display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start; flex: 1; }
+.next-story-pre   { font-family: 'DM Sans', sans-serif; font-size: 0.62rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,25,22,0.5); }
+.next-story-title { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 500; color: var(--ink); line-height: 1.2; }
+.next-story-arrow { width: 48px; height: 48px; background: rgba(28,25,22,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; color: var(--ink); transition: transform 0.25s var(--transition); }
+.next-story-btn:hover .next-story-arrow { transform: translateX(5px); }
+
+.score-footer-band { background: var(--paper); border: 1px solid var(--border); border-top: none; border-radius: 0 0 20px 20px; padding: 1.1rem 1.8rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.save-ok   { font-size: 0.75rem; color: var(--sage); }
+.save-fail { font-size: 0.75rem; color: var(--error); }
+.pdf-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 1.1rem; font-size: 0.7rem; font-family: 'DM Sans', sans-serif; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: transparent; border: 1px solid var(--border); border-radius: 50px; cursor: pointer; color: var(--ink-light); transition: all 0.2s ease; }
+.pdf-btn:hover { border-color: var(--rose-gold); color: var(--ink); }
+
+/* ── RESTART ── */
+#restartBtn { display: none; padding: 0.65rem 1.8rem; font-size: 0.75rem; font-family: 'DM Sans', sans-serif; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; background: transparent; border: 1px solid var(--border); border-radius: 50px; cursor: pointer; color: var(--ink-light); transition: all 0.2s ease; margin: 0.5rem auto; }
+#restartBtn:hover { border-color: var(--rose-gold); color: var(--ink); }
+
+/* ── SPINNER ── */
+.spinner-wrap { display: none; text-align: center; padding: 3rem 2rem; font-family: 'Cormorant', serif; font-style: italic; font-size: 1rem; color: var(--ink-light); }
+.spinner { width: 28px; height: 28px; border: 1.5px solid var(--border); border-top-color: var(--rose-gold); border-radius: 50%; animation: spin 0.9s linear infinite; margin: 0 auto 0.8rem; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ── CONFETTI ── */
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(540deg);opacity:0} }
+.confetti-piece { position: fixed; border-radius: 1px; pointer-events: none; z-index: 300; animation: confettiFall linear forwards; }
+
+/* ── PLAYBACK AREA ── */
+.playback-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+.play-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.28rem 0.75rem; font-size: 0.68rem; font-family: 'DM Sans', sans-serif; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; background: var(--white); color: var(--ink-light); transition: all 0.2s ease; }
+.play-chip:hover { border-color: var(--rose-gold); color: var(--ink); }
+
+/* ── BROWSER UNSUPPORTED BANNER ── */
+.no-speech { background: rgba(192,96,74,0.08); border: 1px solid rgba(192,96,74,0.2); border-radius: var(--radius-sm); padding: 0.8rem 1rem; font-size: 0.8rem; color: var(--error); margin-top: 1rem; line-height: 1.5; display: none; }
 </style>
 </head>
 
 <body>
+<div class="progress-bar-wrap" id="progressBarWrap">
+  <div class="progress-bar-fill" id="progressBarFill" style="width:0%"></div>
+</div>
 
 <div class="container">
 
-<h2>🎤 Voice Trainer</h2>
+  <!-- NAME FORM -->
+  <div id="nameForm">
+    <div class="form-card">
+      <p class="form-eyebrow">Live Reading · English</p>
+      <h1 class="form-title">The Story Quest</h1>
+      <p class="form-subtitle">Read aloud. The words will follow you.</p>
+      <div class="form-rule"></div>
 
-<div id="bubble" class="bubble"></div>
+      <label class="field-label" for="nameInput">Your Name</label>
+      <input type="text" id="nameInput" placeholder="Enter your name" autocomplete="name"/>
 
-<div id="micStatus">🎤 Waiting...</div>
-<div id="liveText">...</div>
+      <label class="field-label" for="departmentSelect">Department</label>
+      <select id="departmentSelect">
+        <option value="">— Select —</option>
+        <option>Agri and Civil</option><option>Cyber Security</option>
+        <option>CSE-1</option><option>CSE-2</option><option>CSE-3</option>
+        <option>Mechanical Engineering</option>
+        <option>ECE-1</option><option>ECE-2</option><option>ECE-3</option>
+        <option>AI DS-1</option><option>AI DS-2</option>
+        <option>EEE</option><option>EIE</option>
+        <option>Medical Electronics</option>
+        <option>IT-1</option><option>IT-2</option>
+      </select>
 
-<button id="retryBtn" style="display:none;">Retry</button>
+      <div class="mic-check">
+        <div class="mic-dot" id="micDot"></div>
+        <div class="mic-text" id="micText">Checking microphone access…</div>
+      </div>
 
-</div>
+      <div class="no-speech" id="noSpeechBanner">
+        ⚠ Your browser doesn't support Web Speech API. Please use Google Chrome or Microsoft Edge for the best experience.
+      </div>
 
+      <button id="startBtn" disabled>Begin Reading</button>
+    </div>
+  </div>
+
+  <!-- QUIZ CONTENT -->
+  <div id="quizContent">
+    <div class="top-strip" id="topStrip">
+      <div class="top-strip-inner">
+        <div class="stat-pill" id="timerPill">⏳ 0s</div>
+        <div class="stat-pill" id="scorePill">✦ 0 / 12</div>
+        <div class="stat-pill" id="linePill">Line 1 / 12</div>
+      </div>
+    </div>
+
+    <div class="chat-area" id="chatArea"></div>
+
+    <div style="max-width:680px; margin:0 auto; padding:0 0 3rem;">
+      <div class="spinner-wrap" id="savingSpinner"><div class="spinner"></div><div>Saving your results…</div></div>
+      <div id="scoreCard"></div>
+      <div style="text-align:center; margin-top:0.5rem;"><button id="restartBtn">↺ Begin Again</button></div>
+    </div>
+  </div>
+
+  <!-- MIC PANEL -->
+  <div class="mic-panel" id="micPanel" style="display:none;">
+    <div class="mic-inner">
+      <div class="transcript-strip" id="transcriptStrip">Listening…</div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div class="waveform" id="waveform">
+          <div class="waveform-bar"></div><div class="waveform-bar"></div>
+          <div class="waveform-bar"></div><div class="waveform-bar"></div>
+          <div class="waveform-bar"></div><div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+        </div>
+      </div>
+      <div class="mic-btn-row">
+        <button class="action-btn reread" id="rereadBtn" style="display:none;">↺ Re-read</button>
+        <button class="mic-btn idle" id="micBtn">🎙</button>
+        <button class="action-btn skip" id="skipBtn" style="display:none;">Skip →</button>
+      </div>
+      <div class="line-prompt" id="linePrompt">Tap the mic to begin reading</div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
+(function(){
+'use strict';
 
-// =====================
-// CHECK SUPPORT
-// =====================
-if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-  document.getElementById("micStatus").textContent =
-    "❌ Speech recognition not supported. Use Chrome.";
-}
-
-// =====================
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // DATA
-// =====================
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const conversation = [
-  "Carpe diem. Seize the day before it slips away!",
-  "I tried to seize the day today, but I almost missed the bus.",
-  "Sometimes the bus we miss teaches us to slow down and reflect."
+  { speaker:'teacher', text:'Carpe diem. Seize the day before it slips away!',                         emotion:'wise',       voiceCue:'Speak slowly, with conviction.' },
+  { speaker:'scholar', text:'I tried to seize the day today, but I almost missed the bus.',            emotion:'playful',    voiceCue:'Light, self-deprecating, amused.' },
+  { speaker:'teacher', text:'Sometimes the bus we miss teaches us to slow down and spend time on introspection.', emotion:'thoughtful', voiceCue:'Pause on "slow down". Let it breathe.' },
+  { speaker:'scholar', text:'But life is always busy. There is always something to do.',                emotion:'earnest',    voiceCue:'A little frustrated — but genuine.' },
+  { speaker:'teacher', text:'The mind becomes busy when it tries to hold everything.',                  emotion:'wise',       voiceCue:'Calm. Almost a whisper on "everything".' },
+  { speaker:'scholar', text:'So what should I do when there are too many tasks?',                       emotion:'curious',    voiceCue:'Lean in. Genuinely puzzled.' },
+  { speaker:'teacher', text:'Pick one task and take one step at a time. Baby steps!',                  emotion:'hopeful',    voiceCue:'Warm and encouraging. Smile on "baby steps".' },
+  { speaker:'scholar', text:'And if I fail while trying, what should I do?',                           emotion:'earnest',    voiceCue:'Vulnerable. Honest. Let the question hang.' },
+  { speaker:'teacher', text:'Remember what Beckett said! Ever tried. Ever failed. No matter. Try again. Fail again. Fail better.', emotion:'wise', voiceCue:'Dramatic! Each short sentence is its own beat.' },
+  { speaker:'scholar', text:'Then the important thing is to do the classic reframing and focus on trying.', emotion:'hopeful',  voiceCue:'A realisation. Growing confidence.' },
+  { speaker:'teacher', text:'Absolutely! We should celebrate effort! I personally celebrate failure!', emotion:'playful',    voiceCue:'Enthusiastic. Almost joyful!' },
+  { speaker:'scholar', text:'Like Edison, I am also going to set a record of failing at least a thousand times!', emotion:'playful', voiceCue:'Triumphant. Make it funny and bold.' }
 ];
 
-// =====================
-let currentLine = 0;
-let words = [];
-let currentWordIndex = 0;
-let correctWords = 0;
-let recognition;
-
-// =====================
-const bubble = document.getElementById("bubble");
-const retryBtn = document.getElementById("retryBtn");
-const micStatus = document.getElementById("micStatus");
-const liveText = document.getElementById("liveText");
-
-// =====================
-startLine();
-
-// =====================
-function startLine() {
-
-  if (currentLine >= conversation.length) {
-    bubble.innerHTML = "🎉 Completed!";
-    micStatus.textContent = "✅ Done";
-    return;
-  }
-
-  words = conversation[currentLine].split(" ");
-  currentWordIndex = 0;
-  correctWords = 0;
-
-  bubble.innerHTML = "";
-
-  words.forEach((w, i) => {
-    const span = document.createElement("span");
-    span.textContent = w + " ";
-    span.className = "word";
-    span.dataset.index = i;
-    bubble.appendChild(span);
-  });
-
-  startSpeech();
-  highlightCurrent();
-}
-
-// =====================
-function startSpeech() {
-
-  recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = "en-IN";
-
-  micStatus.textContent = "🎤 Listening...";
-  liveText.textContent = "...";
-
-  recognition.onresult = (e) => {
-
-    let transcript = "";
-
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      transcript += e.results[i][0].transcript;
-    }
-
-    liveText.textContent = transcript;
-
-    process(transcript);
-  };
-
-  recognition.onerror = () => {
-    micStatus.textContent = "⚠️ Mic error";
-  };
-
-  recognition.onend = () => {
-    micStatus.textContent = "🔄 Restarting...";
-    setTimeout(() => {
-      try { recognition.start(); } catch(e) {}
-    }, 500);
-  };
-
-  recognition.start();
-}
-
-// =====================
-function process(text) {
-
-  const spoken = text.toLowerCase().split(" ");
-
-  for (let w of spoken) {
-
-    let target = words[currentWordIndex]?.toLowerCase();
-    if (!target) return;
-
-    if (match(w, target)) {
-      markCorrect(currentWordIndex);
-      correctWords++;
-      currentWordIndex++;
-      highlightCurrent();
-    } else {
-      markWrong(currentWordIndex);
-    }
-
-    if (currentWordIndex >= words.length) {
-      recognition.stop();
-      evaluate();
-      break;
-    }
-  }
-}
-
-// =====================
-function match(a, b) {
-  if (a === b) return true;
-  return levenshtein(a, b) <= 1;
-}
-
-// =====================
-function highlightCurrent() {
-  document.querySelectorAll(".word").forEach(w => w.classList.remove("current"));
-  const el = document.querySelector(`[data-index="${currentWordIndex}"]`);
-  if (el) el.classList.add("current");
-}
-
-function markCorrect(i) {
-  document.querySelector(`[data-index="${i}"]`)?.classList.add("correct");
-}
-
-function markWrong(i) {
-  document.querySelector(`[data-index="${i}"]`)?.classList.add("wrong");
-}
-
-// =====================
-function evaluate() {
-
-  let acc = (correctWords / words.length) * 100;
-
-  if (acc >= 55) {
-    currentLine++;
-    setTimeout(startLine, 800);
-  } else {
-    retryBtn.style.display = "inline-block";
-    micStatus.textContent = "❌ Try again";
-  }
-}
-
-// =====================
-retryBtn.onclick = () => {
-  retryBtn.style.display = "none";
-  startLine();
+const EMOTION_META = {
+  wise:       { label:'Wise',        emoji:'🧘', color:'var(--emo-wise)',       bg:'rgba(155,139,110,0.08)', border:'rgba(155,139,110,0.25)' },
+  playful:    { label:'Playful',     emoji:'😄', color:'var(--emo-playful)',    bg:'rgba(196,149,106,0.08)', border:'rgba(196,149,106,0.25)' },
+  thoughtful: { label:'Thoughtful',  emoji:'🤔', color:'var(--emo-thoughtful)', bg:'rgba(122,143,181,0.08)', border:'rgba(122,143,181,0.25)' },
+  curious:    { label:'Curious',     emoji:'❓', color:'var(--emo-curious)',    bg:'rgba(122,165,139,0.08)', border:'rgba(122,165,139,0.25)' },
+  earnest:    { label:'Earnest',     emoji:'💬', color:'var(--emo-earnest)',    bg:'rgba(160,117,80,0.08)',  border:'rgba(160,117,80,0.25)' },
+  hopeful:    { label:'Hopeful',     emoji:'🌱', color:'var(--emo-hopeful)',    bg:'rgba(143,160,122,0.08)', border:'rgba(143,160,122,0.25)' }
 };
 
-// =====================
-// LEVENSHTEIN
-// =====================
-function levenshtein(a, b) {
-  const m = [];
-  for (let i = 0; i <= b.length; i++) m[i] = [i];
-  for (let j = 0; j <= a.length; j++) m[0][j] = j;
+const QUEST_ID = 'Quest 206R';
 
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      m[i][j] = b[i - 1] === a[j - 1]
-        ? m[i - 1][j - 1]
-        : Math.min(
-            m[i - 1][j - 1] + 1,
-            m[i][j - 1] + 1,
-            m[i - 1][j] + 1
-          );
-    }
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let playerName='', playerDept='';
+let currentLine=0, lineAttempts=0;
+let totalCorrectWords=0, totalMissedWords=0, totalWords=0;
+let lineResults=[]; // {index, heard, missed, pace, duration}
+let startTime=null, timerInterval=null;
+let recognition=null, isListening=false;
+let lineStartTime=null, lineAudioChunks=[], mediaRecorder=null, recordedBlobs={};
+let speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+let micAllowed = false;
+
+// per-line interim state
+let lineWords=[], heardSet=new Set(), lastHeardIdx=-1, interimTranscript='';
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DOM REFS (populated after DOMContentLoaded)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let $nameForm, $quizContent, $nameInput, $deptSelect, $startBtn;
+let $micDot, $micText, $noSpeechBanner;
+let $chatArea, $topStrip, $progressBarWrap, $progressBarFill;
+let $timerPill, $scorePill, $linePill;
+let $micPanel, $micBtn, $transcriptStrip, $waveform;
+let $rereadBtn, $skipBtn, $linePrompt;
+let $savingSpinner, $scoreCard, $restartBtn;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SUPABASE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _sb = null;
+try {
+  if (window.supabase?.createClient) {
+    _sb = window.supabase.createClient(
+      "https://yellow-lab-4999.andrewveda.workers.dev",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoZXpzc29jenZwYmt0ZWZmY2d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NTk1ODUsImV4cCI6MjA3ODQzNTU4NX0.2ZlqXnZxv0opkhynAT7OlK4S-xPygcc7ETUyTXRfGHE"
+    );
   }
-  return m[b.length][a.length];
+} catch(e) {}
+
+async function sendToServer(payload) {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch("https://yellow-lab-4999.andrewveda.workers.dev/functions/v1/logQuest", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload), signal:ctrl.signal
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    return d.success === true;
+  } catch(e) { return false; }
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MIC INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function initMic() {
+  if (!speechSupported) {
+    $noSpeechBanner.style.display = 'block';
+    $micDot.className = 'mic-dot fail';
+    $micText.textContent = 'Speech recognition not supported in this browser.';
+    $startBtn.disabled = true;
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    micAllowed = true;
+    $micDot.className = 'mic-dot ok';
+    $micText.textContent = 'Microphone ready. You\'re good to go.';
+    $startBtn.disabled = false;
+  } catch(e) {
+    $micDot.className = 'mic-dot fail';
+    $micText.textContent = 'Microphone access denied. Please allow mic in browser settings.';
+    $startBtn.disabled = true;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// START
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function beginQuiz() {
+  if (!$nameInput.value.trim()) { $nameInput.focus(); $nameInput.style.borderColor='var(--error)'; return; }
+  if (!$deptSelect.value)        { $deptSelect.style.borderColor='var(--error)'; return; }
+  $nameInput.style.borderColor = $deptSelect.style.borderColor = '';
+  playerName = $nameInput.value.trim();
+  playerDept = $deptSelect.value;
+  try { localStorage.setItem('playerName',playerName); localStorage.setItem('playerDept',playerDept); } catch(e){}
+
+  const card = $nameForm.querySelector('.form-card');
+  card.style.transition='opacity 0.3s ease, transform 0.3s ease';
+  card.style.opacity='0'; card.style.transform='scale(0.97) translateY(8px)';
+  setTimeout(() => {
+    $nameForm.style.display='none';
+    $quizContent.style.display='block';
+    $topStrip.style.display='block';
+    $progressBarWrap.style.display='block';
+    $micPanel.style.display='block';
+    startQuiz();
+  }, 300);
+}
+
+function startQuiz() {
+  currentLine=0; lineAttempts=0;
+  totalCorrectWords=0; totalMissedWords=0; totalWords=0;
+  lineResults=[]; recordedBlobs={};
+  $chatArea.innerHTML='';
+  $scoreCard.innerHTML='';
+  $restartBtn.style.display='none';
+  $savingSpinner.style.display='none';
+  $progressBarFill.style.width='0%';
+  updateStats();
+  startTime = Date.now();
+  startTimer();
+  showCurrentLine();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LINE RENDERING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function showCurrentLine() {
+  if (currentLine >= conversation.length) { finishQuiz(); return; }
+  const line = conversation[currentLine];
+  const side = line.speaker==='teacher' ? 'left' : 'right';
+  const emo  = EMOTION_META[line.emotion];
+
+  const row = document.createElement('div');
+  row.className = `bubble-row ${side} active-line`;
+  row.id = `line-row-${currentLine}`;
+
+  const avatar = document.createElement('div');
+  avatar.className='avatar';
+  avatar.textContent = line.speaker==='teacher' ? '🧘' : '📚';
+
+  const col = document.createElement('div');
+  col.className='bubble-col';
+
+  // speaker name
+  const nameEl = document.createElement('div');
+  nameEl.className='speaker-name';
+  nameEl.textContent = line.speaker==='teacher' ? 'Teacher' : 'Scholar';
+
+  // emotion tag
+  const emoTag = document.createElement('div');
+  emoTag.className='emotion-tag';
+  emoTag.style.cssText=`color:${emo.color};background:${emo.bg};border-color:${emo.border}`;
+  emoTag.innerHTML=`${emo.emoji} ${emo.label}`;
+
+  // voice cue
+  const vcEl = document.createElement('div');
+  vcEl.className='voice-cue';
+  vcEl.textContent=`"${line.voiceCue}"`;
+
+  // bubble with word spans
+  const bub = document.createElement('div');
+  bub.className='bubble';
+  bub.id=`bubble-${currentLine}`;
+
+  lineWords = tokenizeWords(line.text);
+  totalWords += lineWords.length;
+  lineWords.forEach((word, i) => {
+    if (word.type==='word') {
+      const sp=document.createElement('span');
+      sp.className='word w-pending';
+      sp.dataset.wi=i;
+      sp.id=`w-${currentLine}-${i}`;
+      sp.textContent=word.text;
+      bub.appendChild(sp);
+    } else {
+      bub.appendChild(document.createTextNode(word.text));
+    }
+  });
+
+  col.appendChild(nameEl);
+  col.appendChild(emoTag);
+  col.appendChild(vcEl);
+  col.appendChild(bub);
+  row.appendChild(avatar);
+  row.appendChild(col);
+  $chatArea.appendChild(row);
+
+  setTimeout(() => row.scrollIntoView({ behavior:'smooth', block:'center' }), 100);
+
+  heardSet.clear(); lastHeardIdx=-1; interimTranscript=''; lineAttempts=0;
+  updateLinePrompt('ready');
+  $rereadBtn.style.display='none';
+  $skipBtn.style.display='inline-flex';
+  updateStats();
+}
+
+function tokenizeWords(text) {
+  // split into word tokens and punctuation/space tokens
+  const tokens=[];
+  const re=/([A-Za-z']+)|([^A-Za-z']+)/g;
+  let m;
+  while((m=re.exec(text))!==null){
+    if(m[1]) tokens.push({type:'word', text:m[1], clean:m[1].toLowerCase().replace(/[^a-z]/g,'')});
+    else     tokens.push({type:'punct',text:m[2]});
+  }
+  return tokens;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SPEECH RECOGNITION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new SR();
+  r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=3;
+
+  r.onresult = (e) => {
+    let interim='';
+    for (let i=e.resultIndex; i<e.results.length; i++) {
+      const res = e.results[i];
+      const text = res[0].transcript;
+      if (res.isFinal) {
+        processTranscript(text, true);
+      } else {
+        interim += text;
+      }
+    }
+    interimTranscript = interim;
+    $transcriptStrip.textContent = interim || '…';
+    if(interim) $transcriptStrip.classList.add('live');
+    else $transcriptStrip.classList.remove('live');
+    processTranscript(interim, false);
+  };
+
+  r.onerror = (e) => {
+    if(e.error==='no-speech') return;
+    console.warn('SR error:', e.error);
+    if(isListening) stopListening();
+  };
+
+  r.onend = () => {
+    if(isListening) {
+      // restart if still supposed to be listening
+      try { r.start(); } catch(_) {}
+    }
+  };
+
+  return r;
+}
+
+function startListening() {
+  if(isListening) return;
+  isListening=true;
+  lineStartTime = Date.now();
+  $micBtn.className='mic-btn listening'; $micBtn.textContent='⏹';
+  $waveform.classList.add('active');
+  $transcriptStrip.classList.add('live');
+  $transcriptStrip.textContent='Listening…';
+  updateLinePrompt('listening');
+  $rereadBtn.style.display='none';
+
+  recognition = buildRecognition();
+  try { recognition.start(); } catch(e){}
+
+  // also start audio recording for playback
+  startAudioRecording();
+}
+
+function stopListening(finalize=true) {
+  isListening=false;
+  $micBtn.className='mic-btn idle'; $micBtn.textContent='🎙';
+  $waveform.classList.remove('active');
+  $transcriptStrip.classList.remove('live');
+  $transcriptStrip.textContent='';
+  try { recognition?.stop(); } catch(_){}
+  recognition=null;
+  stopAudioRecording(finalize);
+  if(finalize) finalizeCurrentLine();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// WORD MATCHING (karaoke)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function processTranscript(transcript, isFinal) {
+  const spokenWords = transcript.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(Boolean);
+  const expectedWords = lineWords.filter(t=>t.type==='word').map(t=>t.clean);
+
+  // greedy forward match from lastHeardIdx+1
+  let searchFrom = lastHeardIdx+1;
+  for (const spoken of spokenWords) {
+    for (let j=searchFrom; j<expectedWords.length; j++) {
+      if(fuzzyMatch(spoken, expectedWords[j])) {
+        if(!heardSet.has(j)) {
+          heardSet.add(j);
+          highlightWordAt(j, 'w-heard');
+          if(j > lastHeardIdx) lastHeardIdx=j;
+        }
+        searchFrom=j+1;
+        break;
+      }
+    }
+  }
+
+  // if final, check all unheard words are marked
+  if(isFinal) {
+    const wordTokenIdxs = lineWords.map((t,i)=>t.type==='word'?i:-1).filter(i=>i>=0);
+    wordTokenIdxs.forEach((ti, wi) => {
+      if(!heardSet.has(wi)){
+        // leave as pending for now; finalize will mark missed
+      }
+    });
+  }
+}
+
+function fuzzyMatch(spoken, expected) {
+  if(!spoken || !expected) return false;
+  if(spoken===expected) return true;
+  // allow 1 char edit distance for words > 4 chars
+  if(expected.length>4 && editDistance(spoken,expected)<=1) return true;
+  // handle common contractions
+  if(spoken.replace(/'/g,'')===expected.replace(/'/g,'')) return true;
+  return false;
+}
+
+function editDistance(a,b) {
+  const m=a.length, n=b.length;
+  const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function highlightWordAt(wordIdx, cls) {
+  // wordIdx is index in filtered word list; map to token index
+  let wi=0;
+  for(let i=0;i<lineWords.length;i++){
+    if(lineWords[i].type!=='word') continue;
+    if(wi===wordIdx) {
+      const sp=document.getElementById(`w-${currentLine}-${i}`);
+      if(sp){ sp.className='word '+cls; }
+      return;
+    }
+    wi++;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FINALIZE LINE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function finalizeCurrentLine() {
+  const duration = lineStartTime ? (Date.now()-lineStartTime)/1000 : 0;
+  const wordTokens = lineWords.filter(t=>t.type==='word');
+  const totalLineWords = wordTokens.length;
+  let heardCount=0, missedWords=[];
+
+  let wi=0;
+  for(let i=0;i<lineWords.length;i++){
+    if(lineWords[i].type!=='word'){wi++;continue;}
+    if(heardSet.has(wi)){
+      heardCount++;
+      highlightWordAt(wi,'w-done');
+    } else {
+      missedWords.push(lineWords[i].text);
+      highlightWordAt(wi,'w-missed');
+    }
+    wi++;
+  }
+
+  totalCorrectWords += heardCount;
+  totalMissedWords  += missedWords.length;
+
+  // pace analysis: expected ~120 wpm for ESL = 0.5s/word
+  const expectedDuration = totalLineWords * 0.5;
+  let pace='ok';
+  if(duration < expectedDuration * 0.55) pace='fast';
+  else if(duration > expectedDuration * 2.2) pace='slow';
+
+  lineResults.push({ index:currentLine, heard:heardCount, total:totalLineWords, missed:missedWords, pace, duration });
+
+  // show feedback strip
+  showLineFeedback(heardCount, totalLineWords, missedWords, pace);
+
+  updateStats();
+  $rereadBtn.style.display='inline-flex';
+  $skipBtn.style.display='none';
+  updateLinePrompt('done');
+
+  // auto-advance after 2s if perfect
+  if(missedWords.length===0 && pace==='ok') {
+    setTimeout(() => advanceLine(), 1800);
+  }
+}
+
+function showLineFeedback(heard, total, missed, pace) {
+  const row = document.getElementById(`line-row-${currentLine}`);
+  if(!row) return;
+  const col = row.querySelector('.bubble-col');
+  if(!col) return;
+
+  // remove existing feedback
+  col.querySelectorAll('.line-feedback,.playback-row').forEach(el=>el.remove());
+
+  const fb = document.createElement('div');
+  fb.className='line-feedback';
+
+  // accuracy
+  if(missed.length===0){
+    fb.innerHTML+=`<span class="fb-chip perfect">✓ All words heard</span>`;
+  } else {
+    fb.innerHTML+=`<span class="fb-chip missed">✗ Missed: ${missed.join(', ')}</span>`;
+  }
+
+  // pace
+  if(pace==='ok')   fb.innerHTML+=`<span class="fb-chip pace-ok">⟳ Good pace</span>`;
+  if(pace==='fast') fb.innerHTML+=`<span class="fb-chip pace-fast">⚡ Too fast</span>`;
+  if(pace==='slow') fb.innerHTML+=`<span class="fb-chip pace-slow">🐢 Try faster</span>`;
+
+  col.appendChild(fb);
+
+  // playback button if we have audio
+  if(recordedBlobs[currentLine]) {
+    const pr = document.createElement('div');
+    pr.className='playback-row';
+    const pb = document.createElement('button');
+    pb.className='play-chip';
+    pb.innerHTML=`▶ Play Back`;
+    pb.onclick=()=>playRecording(currentLine);
+    pr.appendChild(pb);
+    col.appendChild(pr);
+  }
+}
+
+function advanceLine() {
+  // dim previous row
+  const prev = document.getElementById(`line-row-${currentLine}`);
+  if(prev){ prev.classList.remove('active-line'); prev.style.opacity='0.6'; }
+  currentLine++;
+  $progressBarFill.style.width=(currentLine/conversation.length*100)+'%';
+  $rereadBtn.style.display='none';
+  $skipBtn.style.display='none';
+  updateStats();
+  if(currentLine>=conversation.length) { finishQuiz(); return; }
+  setTimeout(showCurrentLine, 300);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RE-READ & SKIP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function rereadLine() {
+  lineAttempts++;
+  // reset word highlights
+  const bub = document.getElementById(`bubble-${currentLine}`);
+  if(bub){ bub.querySelectorAll('.word').forEach(sp=>sp.className='word w-pending'); }
+  // remove feedback
+  const row = document.getElementById(`line-row-${currentLine}`);
+  if(row){ row.querySelectorAll('.line-feedback,.playback-row').forEach(el=>el.remove()); }
+  heardSet.clear(); lastHeardIdx=-1;
+  totalCorrectWords -= (lineResults[lineResults.length-1]?.heard || 0);
+  totalMissedWords  -= (lineResults[lineResults.length-1]?.missed?.length || 0);
+  totalWords        -= (lineResults[lineResults.length-1]?.total || 0);
+  lineResults.pop();
+  $rereadBtn.style.display='none';
+  $skipBtn.style.display='inline-flex';
+  startListening();
+}
+
+function skipLine() {
+  if(isListening) stopListening(false);
+  // mark all unheard as missed
+  lineWords.forEach((t,i) => {
+    if(t.type==='word'){
+      const el=document.getElementById(`w-${currentLine}-${i}`);
+      if(el && !el.classList.contains('w-heard') && !el.classList.contains('w-done'))
+        el.className='word w-missed';
+    }
+  });
+  lineResults.push({ index:currentLine, heard:0, total:lineWords.filter(t=>t.type==='word').length, missed:lineWords.filter(t=>t.type==='word').map(t=>t.text), pace:'slow', duration:0 });
+  totalMissedWords += lineWords.filter(t=>t.type==='word').length;
+  advanceLine();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AUDIO RECORDING (for playback)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function startAudioRecording() {
+  lineAudioChunks=[];
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) lineAudioChunks.push(e.data); };
+    mediaRecorder.start(100);
+  }).catch(()=>{});
+}
+
+function stopAudioRecording(save) {
+  if(!mediaRecorder || mediaRecorder.state==='inactive') return;
+  mediaRecorder.onstop = ()=>{
+    if(save && lineAudioChunks.length){
+      const blob = new Blob(lineAudioChunks, {type:'audio/webm'});
+      recordedBlobs[currentLine]=blob;
+    }
+    // stop stream tracks
+    mediaRecorder.stream.getTracks().forEach(t=>t.stop());
+    mediaRecorder=null;
+  };
+  try{ mediaRecorder.stop(); }catch(_){}
+}
+
+function playRecording(lineIdx) {
+  const blob=recordedBlobs[lineIdx];
+  if(!blob) return;
+  const url=URL.createObjectURL(blob);
+  const audio=new Audio(url);
+  audio.play();
+  audio.onended=()=>URL.revokeObjectURL(url);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// UI HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function updateLinePrompt(state) {
+  const prompts={
+    ready:    'Tap 🎙 to read this line aloud',
+    listening:'Reading… tap ⏹ when done',
+    done:     'Line complete — tap 🎙 for next, or ↺ re-read'
+  };
+  $linePrompt.textContent = prompts[state]||'';
+}
+
+function updateStats() {
+  const elapsed=startTime?Math.floor((Date.now()-startTime)/1000):0;
+  const m=Math.floor(elapsed/60), s=elapsed%60;
+  $timerPill.textContent=m>0?`⏳ ${m}m ${s}s`:`⏳ ${elapsed}s`;
+  $scorePill.textContent=`✦ ${totalCorrectWords} / ${totalWords||'—'}`;
+  $linePill.textContent=`Line ${Math.min(currentLine+1,conversation.length)} / ${conversation.length}`;
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval=setInterval(updateStats, 1000);
+}
+
+function animatePill(el){ el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONFETTI
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function launchConfetti() {
+  const colors=['#c4956a','#d4a87a','#a07550','#e8e3dc','#7a9b7a','#1c1916'];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');
+    c.className='confetti-piece';
+    c.style.left=Math.random()*100+'vw'; c.style.top='-20px';
+    c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    const sz=5+Math.random()*7;
+    c.style.width=sz+'px'; c.style.height=sz+'px';
+    c.style.animationDuration=(2+Math.random()*2.5)+'s';
+    c.style.animationDelay=(Math.random()*1.2)+'s';
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(), 5000);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FINISH & SCORE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function finishQuiz() {
+  clearInterval(timerInterval);
+  isListening=false;
+  try{recognition?.stop();}catch(_){}
+  $micPanel.style.display='none';
+  $progressBarFill.style.width='100%';
+  $linePill.textContent='✦ Done';
+  $chatArea.innerHTML='';
+
+  $savingSpinner.style.display='block';
+
+  const totalTime=Math.floor((Date.now()-startTime)/1000);
+  const accuracy=totalWords>0?Math.round(totalCorrectWords/totalWords*100):0;
+
+  // build per-line table rows
+  const rowsHTML = lineResults.map((r,idx)=>{
+    const line=conversation[r.index]||conversation[idx];
+    const speaker=line?line.speaker:'—';
+    const acc=r.total>0?Math.round(r.heard/r.total*100):0;
+    const paceLabel=r.pace==='ok'?'<span class="td-ok">✓ Good</span>':r.pace==='fast'?'<span class="td-pace" style="color:var(--warn)">⚡ Fast</span>':'<span class="td-pace" style="color:var(--emo-thoughtful)">🐢 Slow</span>';
+    const missedStr=r.missed.length?`<span class="td-missed">${r.missed.join(', ')}</span>`:'<span class="td-ok">—</span>';
+    const speakerIcon=speaker==='teacher'?'🧘':'📚';
+    return `<tr>
+      <td>${speakerIcon} ${r.index+1}</td>
+      <td>${acc}%</td>
+      <td>${paceLabel}</td>
+      <td>${missedStr}</td>
+    </tr>`;
+  }).join('');
+
+  const sub = {
+    student_name:playerName, department:playerDept,
+    correct:totalCorrectWords, wrong:totalMissedWords,
+    time_spent:totalTime, quest_id:QUEST_ID,
+    accuracy_percent:accuracy
+  };
+
+  let saved=false;
+  for(let attempt=1;attempt<=3;attempt++){
+    saved=await sendToServer(sub);
+    if(saved) break;
+    if(attempt<3) await new Promise(r=>setTimeout(r,1500));
+  }
+
+  $savingSpinner.style.display='none';
+  launchConfetti();
+
+  const mins=Math.floor(totalTime/60), secs=totalTime%60;
+  const timeStr=mins>0?`${mins}m ${secs}s`:`${secs}s`;
+  const flawless=totalMissedWords===0;
+  const trophy=flawless?'🏆':accuracy>=80?'🌟':'📖';
+
+  const saveHTML=saved
+    ?`<p class="save-ok">✓ Results saved</p>`
+    :`<p class="save-fail">⚠ Could not reach server</p>`;
+
+  $scoreCard.innerHTML=`
+  <div class="score-wrapper">
+    <div class="score-trophy-band">
+      <div class="score-status-pill">✦ ${QUEST_ID} · Complete</div>
+      <span class="score-main-emoji">${trophy}</span>
+      <h2 class="score-headline">${accuracy}%</h2>
+      <p class="score-tagline">${flawless?'A flawless reading performance.':'Words heard vs words spoken.'}</p>
+    </div>
+
+    <div class="score-stats-band">
+      <div class="score-name-row">
+        <span class="score-player-name">${playerName}</span>
+        <span class="score-player-dept">${playerDept}</span>
+      </div>
+      <div class="score-grid">
+        <div class="score-cell">
+          <span class="score-cell-val good">${totalCorrectWords}</span>
+          <span class="score-cell-label">Words Heard</span>
+        </div>
+        <div class="score-cell">
+          <span class="score-cell-val bad">${totalMissedWords}</span>
+          <span class="score-cell-label">Missed</span>
+        </div>
+        <div class="score-cell">
+          <span class="score-cell-val time">⏱ ${timeStr}</span>
+          <span class="score-cell-label">Time</span>
+        </div>
+      </div>
+
+      <table class="score-detail-table" style="margin-top:1.2rem;">
+        <thead>
+          <tr>
+            <th>Line</th><th>Accuracy</th><th>Pace</th><th>Missed Words</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+
+      ${flawless?`<div class="flawless-strip" style="margin-top:1rem;padding:0.6rem 1rem;background:rgba(122,155,122,0.08);border:1px solid rgba(122,155,122,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;gap:0.5rem;font-family:'DM Sans',sans-serif;font-size:0.7rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--sage);">✦ &nbsp; Flawless — every word heard</div>`:''}
+    </div>
+
+    <div class="score-next-band">
+      <p class="score-next-eyebrow">Continue your journey</p>
+      <a href="https://andrewveda.github.io/SRM-VEC-English-PWA/cloze/conversation2" class="next-story-btn">
+        <div class="next-story-text">
+          <span class="next-story-pre">Up next</span>
+          <span class="next-story-title">Story 2 — The Next Conversation</span>
+        </div>
+        <div class="next-story-arrow">→</div>
+      </a>
+    </div>
+
+    <div class="score-footer-band">
+      <div>${saveHTML}</div>
+      <button class="pdf-btn" onclick="downloadPDFReport()">↓ Download Report</button>
+    </div>
+  </div>`;
+
+  $restartBtn.style.display='inline-block';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PDF REPORT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.downloadPDFReport=function(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const pageH=doc.internal.pageSize.height, mL=20, uW=170;
+  const totalTime=Math.floor((Date.now()-startTime)/1000);
+  const reportDate=new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
+  const accuracy=totalWords>0?Math.round(totalCorrectWords/totalWords*100):0;
+
+  doc.setFillColor(25,25,60); doc.rect(0,0,210,45,'F');
+  doc.setTextColor(255,255,255); doc.setFont('times','bold'); doc.setFontSize(18);
+  doc.text('SRM VALLIAMMAI ENGINEERING COLLEGE',105,16,{align:'center'});
+  doc.setFontSize(12); doc.setFont('times','italic'); doc.text('(Autonomous)',105,23,{align:'center'});
+  doc.setFontSize(15); doc.setFont('times','normal'); doc.text('Department of English',105,31,{align:'center'});
+  doc.setFontSize(14); doc.setFont('times','bold'); doc.setTextColor(212,175,55);
+  doc.text(`${QUEST_ID} — Live Reading Report`,105,39,{align:'center'});
+
+  doc.setTextColor(0,0,0); doc.setFontSize(11); doc.setFont('times','bold'); doc.text('CANDIDATE INFORMATION',mL,55);
+  doc.autoTable({startY:58, body:[['Student Name',playerName],['Department',playerDept],['Quest ID',QUEST_ID],['Completed On',reportDate]], theme:'plain', styles:{fontSize:10,font:'times',cellPadding:3}, columnStyles:{0:{fontStyle:'bold',cellWidth:60,textColor:[70,70,70]},1:{cellWidth:120}}, margin:{left:mL,right:mL}});
+
+  let y=doc.lastAutoTable.finalY+10;
+  doc.setFont('times','bold'); doc.text('PERFORMANCE SUMMARY',mL,y); y+=3;
+  doc.autoTable({startY:y+3, body:[['Total Words',totalWords.toString()],['Words Heard',totalCorrectWords.toString()],['Missed Words',totalMissedWords.toString()],['Accuracy',accuracy+'%'],['Time',`${Math.floor(totalTime/60)}m ${totalTime%60}s`]], theme:'grid', styles:{fontSize:10,font:'times',cellPadding:3}, margin:{left:mL,right:mL}, pageBreak:'auto'});
+
+  y=doc.lastAutoTable.finalY+12;
+  if(y>pageH-30){doc.addPage();y=20;}
+  doc.setFont('times','bold'); doc.text('LINE-BY-LINE ANALYSIS',mL,y); y+=4;
+  const tableBody=lineResults.map((r,idx)=>{
+    const line=conversation[r.index]||conversation[idx];
+    return [(r.index+1).toString(), line?line.text.substring(0,40)+'…':'—', `${r.total>0?Math.round(r.heard/r.total*100):0}%`, r.pace, r.missed.join(', ')||'—'];
+  });
+  doc.autoTable({startY:y+3, head:[['#','Line (excerpt)','Accuracy','Pace','Missed']], body:tableBody, theme:'striped', styles:{fontSize:9,font:'times',cellPadding:2.5}, margin:{left:mL,right:mL}, pageBreak:'auto'});
+
+  doc.setDrawColor(184,134,11); doc.setLineWidth(0.5); doc.line(mL,pageH-17,190,pageH-17);
+  doc.setFontSize(8); doc.setTextColor(128,128,128); doc.setFont('times','italic');
+  doc.text('System-generated report',105,pageH-10,{align:'center'});
+  doc.save(`${playerName.replace(/[^a-zA-Z0-9]/g,'_')}_${QUEST_ID.replace(/[^a-zA-Z0-9]/g,'_')}_Report.pdf`);
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DOM READY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.addEventListener('DOMContentLoaded',()=>{
+  $nameForm        = document.getElementById('nameForm');
+  $quizContent     = document.getElementById('quizContent');
+  $nameInput       = document.getElementById('nameInput');
+  $deptSelect      = document.getElementById('departmentSelect');
+  $startBtn        = document.getElementById('startBtn');
+  $micDot          = document.getElementById('micDot');
+  $micText         = document.getElementById('micText');
+  $noSpeechBanner  = document.getElementById('noSpeechBanner');
+  $chatArea        = document.getElementById('chatArea');
+  $topStrip        = document.getElementById('topStrip');
+  $progressBarWrap = document.getElementById('progressBarWrap');
+  $progressBarFill = document.getElementById('progressBarFill');
+  $timerPill       = document.getElementById('timerPill');
+  $scorePill       = document.getElementById('scorePill');
+  $linePill        = document.getElementById('linePill');
+  $micPanel        = document.getElementById('micPanel');
+  $micBtn          = document.getElementById('micBtn');
+  $transcriptStrip = document.getElementById('transcriptStrip');
+  $waveform        = document.getElementById('waveform');
+  $rereadBtn       = document.getElementById('rereadBtn');
+  $skipBtn         = document.getElementById('skipBtn');
+  $linePrompt      = document.getElementById('linePrompt');
+  $savingSpinner   = document.getElementById('savingSpinner');
+  $scoreCard       = document.getElementById('scoreCard');
+  $restartBtn      = document.getElementById('restartBtn');
+
+  $startBtn.onclick = beginQuiz;
+
+  $micBtn.onclick = ()=>{
+    if(isListening){ stopListening(true); }
+    else {
+      if(currentLine>=conversation.length) return;
+      startListening();
+    }
+  };
+
+  $rereadBtn.onclick = rereadLine;
+  $skipBtn.onclick   = skipLine;
+
+  $restartBtn.onclick = ()=>{
+    clearInterval(timerInterval);
+    isListening=false; try{recognition?.stop();}catch(_){}
+    $quizContent.style.display='none';
+    $topStrip.style.display='none';
+    $progressBarWrap.style.display='none';
+    $micPanel.style.display='none';
+    $progressBarFill.style.width='0%';
+    $nameForm.style.display='flex';
+    $nameInput.value=''; $deptSelect.value='';
+    const card=$nameForm.querySelector('.form-card');
+    card.style.transition='none'; card.style.opacity='1'; card.style.transform='';
+    $restartBtn.style.display='none';
+    $chatArea.innerHTML='';
+  };
+
+  // autofill
+  try{
+    const n=localStorage.getItem('playerName'), d=localStorage.getItem('playerDept');
+    if(n) $nameInput.value=n;
+    if(d) $deptSelect.value=d;
+  }catch(e){}
+
+  initMic();
+});
+
+})();
 </script>
 
+<!-- PWA link intercept (same as original) -->
+<script>
+document.addEventListener('click',function(e){
+  const target=e.target.closest('a'); if(!target) return;
+  const url=target.href;
+  const internalDomains=[window.location.origin,'andrewveda.github.io'];
+  const isInternal=internalDomains.some(d=>url.includes(d));
+  if(isInternal&&(window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches)){
+    e.preventDefault(); window.location.href=url;
+  } else { target.setAttribute('target','_blank'); }
+});
+</script>
 </body>
 </html>
