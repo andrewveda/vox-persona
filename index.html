@@ -43,6 +43,18 @@ body {
   color: red;
 }
 
+#micStatus {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #555;
+}
+
+#liveText {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #888;
+}
+
 button {
   margin-top: 1.5rem;
   padding: 0.7rem 1.5rem;
@@ -63,6 +75,9 @@ button {
 
 <div id="bubble" class="bubble"></div>
 
+<div id="micStatus">🎤 Waiting...</div>
+<div id="liveText">...</div>
+
 <button id="retryBtn" style="display:none;">Retry</button>
 
 </div>
@@ -70,10 +85,18 @@ button {
 <script>
 
 // =====================
+// CHECK SUPPORT
+// =====================
+if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+  document.getElementById("micStatus").textContent =
+    "❌ Speech recognition not supported. Use Chrome.";
+}
+
+// =====================
 // DATA
 // =====================
 const conversation = [
-  "Seize the day before it slips away!",
+  "Carpe diem. Seize the day before it slips away!",
   "I tried to seize the day today, but I almost missed the bus.",
   "Sometimes the bus we miss teaches us to slow down and reflect."
 ];
@@ -88,9 +111,9 @@ let recognition;
 // =====================
 const bubble = document.getElementById("bubble");
 const retryBtn = document.getElementById("retryBtn");
+const micStatus = document.getElementById("micStatus");
+const liveText = document.getElementById("liveText");
 
-// =====================
-// INIT
 // =====================
 startLine();
 
@@ -99,6 +122,7 @@ function startLine() {
 
   if (currentLine >= conversation.length) {
     bubble.innerHTML = "🎉 Completed!";
+    micStatus.textContent = "✅ Done";
     return;
   }
 
@@ -129,9 +153,31 @@ function startSpeech() {
   recognition.interimResults = true;
   recognition.lang = "en-IN";
 
+  micStatus.textContent = "🎤 Listening...";
+  liveText.textContent = "...";
+
   recognition.onresult = (e) => {
-    const text = e.results[e.results.length - 1][0].transcript;
-    process(text);
+
+    let transcript = "";
+
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      transcript += e.results[i][0].transcript;
+    }
+
+    liveText.textContent = transcript;
+
+    process(transcript);
+  };
+
+  recognition.onerror = () => {
+    micStatus.textContent = "⚠️ Mic error";
+  };
+
+  recognition.onend = () => {
+    micStatus.textContent = "🔄 Restarting...";
+    setTimeout(() => {
+      try { recognition.start(); } catch(e) {}
+    }, 500);
   };
 
   recognition.start();
@@ -187,6 +233,7 @@ function markWrong(i) {
 
 // =====================
 function evaluate() {
+
   let acc = (correctWords / words.length) * 100;
 
   if (acc >= 75) {
@@ -194,6 +241,7 @@ function evaluate() {
     setTimeout(startLine, 800);
   } else {
     retryBtn.style.display = "inline-block";
+    micStatus.textContent = "❌ Try again";
   }
 }
 
