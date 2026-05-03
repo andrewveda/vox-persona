@@ -597,23 +597,7 @@ function buildRecognition(){
   const r=new SR();
   r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
 
-  r.r.onresult = (e) => {
-  let text = '';
-
-  for (let i = e.resultIndex; i < e.results.length; i++) {
-    text += e.results[i][0].transcript + ' ';
-  }
-
-  text = text.trim();
-
-  // 👇 THIS is the key visual fix
-  $transcriptStrip.textContent = text;
-  $transcriptStrip.style.display = 'block';
-
-  console.log("Heard:", text); // optional debug
-
-  processTranscript(text, false);
-};=e=>{
+  r.onresult=e=>{
     let interim='';
     for(let i=e.resultIndex;i<e.results.length;i++){
       // collect all alternatives for better ESL coverage
@@ -624,6 +608,7 @@ function buildRecognition(){
     }
     $transcriptStrip.textContent=interim||'…';
     if(interim) $transcriptStrip.classList.add('live');
+    $transcriptStrip.style.display = 'block';
     processTranscript(interim,false);
   };
   r.onerror=e=>{ if(e.error!=='no-speech') stopListening(); };
@@ -642,6 +627,7 @@ function startListening(){
   $micBtn.className='mic-btn listening'; $micBtn.textContent='⏹';
   $waveform.classList.add('active');
   $transcriptStrip.textContent='Listening…'; $transcriptStrip.classList.add('live');
+  $transcriptStrip.style.display = 'block';
   setPrompt('listening');
   $rereadBtn.style.display='none'; $nextBtn.style.display='none';
 
@@ -654,7 +640,10 @@ function stopListening(finalize=true){
   isListening=false;
   $micBtn.className='mic-btn idle'; $micBtn.textContent='🎙';
   $waveform.classList.remove('active');
-  $transcriptStrip.classList.remove('live'); $transcriptStrip.textContent='';
+  $transcriptStrip.classList.remove('live'); setTimeout(() => {
+  $transcriptStrip.textContent = '';
+  $transcriptStrip.style.display = 'none';
+}, 1500);
   try{recognition?.stop();}catch(_){} recognition=null;
   stopAudioRec(finalize);
   if(finalize) finalizeCurrentLine();
