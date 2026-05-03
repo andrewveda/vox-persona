@@ -643,9 +643,11 @@ function tokenize(text){
 // The ratchet floor (_confirmedIdx) marks the last word locked by a final.
 // Interim matching always starts from _confirmedIdx, never from behind it.
 
-let _finalBuffer   = ''; // display text accumulated from finals
-let _confirmedIdx  = -1; // ratchet floor — words ≤ this index are locked forever
-let _interimTimer  = null; // debounce handle for interim highlighting
+let _finalBuffer        = '';
+let _confirmedIdx       = -1;
+let _interimTimer       = null;
+let _restartCount       = 0;
+let _firstResultSeen    = false;
 
 function buildRecognition(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -653,16 +655,15 @@ function buildRecognition(){
   r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
 
   r.onresult=e=>{
+    _restartCount=0; _firstResultSeen=true; // reset watchdog on any result
     let interimText='';
     let hasFinal=false;
 
     for(let i=e.resultIndex;i<e.results.length;i++){
       if(e.results[i].isFinal){
         hasFinal=true;
-        // Collect all N-best alternatives for ESL coverage
         const alts=[];
         for(let k=0;k<e.results[i].length;k++) alts.push(e.results[i][k].transcript);
-        // Lock in confirmed words — advance ratchet floor
         processAndLock(alts.join(' '));
         _finalBuffer=(_finalBuffer+' '+e.results[i][0].transcript).trim();
       } else {
@@ -670,7 +671,6 @@ function buildRecognition(){
       }
     }
 
-    // Always update transcript strip with finals + live interim
     const displayText=(_finalBuffer+(interimText?' '+interimText:'')).trim();
     if(displayText){
       $transcriptStrip.textContent=displayText;
@@ -678,16 +678,31 @@ function buildRecognition(){
       $transcriptStrip.scrollTop=$transcriptStrip.scrollHeight;
     }
 
-    // Interim word highlighting — debounced 80ms to avoid per-keystroke thrash
-    // Skip if a final just ran (processAndLock already did the work)
     if(interimText && !hasFinal){
       clearTimeout(_interimTimer);
       _interimTimer=setTimeout(()=>processInterim(interimText), 80);
     }
   };
 
-  r.onerror=e=>{ if(e.error!=='no-speech') stopListening(); };
-  r.onend  =()=>{ if(isListening){ try{r.start();}catch(_){} } };
+  r.onerror=e=>{
+    // 'no-speech' is a normal silence timeout — onend will restart us, ignore it
+    if(e.error==='no-speech') return;
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      setPrompt('error-perm'); stopListening(false); return;
+    }
+    console.warn('SR error:', e.error);
+  };
+
+  r.onend=()=>{
+    if(!isListening) return;
+    _restartCount++;
+    // Watchdog: 4 restarts with zero results = mic blocked or SR broken
+    if(_restartCount>=4 && !_firstResultSeen){
+      setPrompt('error-mic'); stopListening(false); return;
+    }
+    try{ r.start(); }catch(_){}
+  };
+
   return r;
 }
 
@@ -752,6 +767,7 @@ function startListening(){
 
   isListening=true; lineStartTime=Date.now();
   _finalBuffer=''; _confirmedIdx=-1; clearTimeout(_interimTimer);
+  _restartCount=0; _firstResultSeen=false;
   $micBtn.className='mic-btn listening'; $micBtn.textContent='⏹';
   $waveform.classList.add('active');
   $transcriptStrip.textContent=''; $transcriptStrip.classList.add('live');
@@ -949,7 +965,13 @@ function skipLine(){
 }
 
 // ─── AUDIO RECORDING ─────────────────────────────────────────────────────────
+// DISABLED on mobile — Android Chrome cannot share the mic between
+// SpeechRecognition and MediaRecorder simultaneously. SR gets no audio and
+// silently fires onend immediately with zero results.
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 function startAudioRec(){
+  if(IS_MOBILE) return; // skip on mobile — SR needs exclusive mic access
   lineAudioChunks=[];
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
     mediaRecorder=new MediaRecorder(stream);
@@ -986,11 +1008,14 @@ function startTimer(){ clearInterval(timerInterval); timerInterval=setInterval(u
 
 function setPrompt(state){
   const P={
-    ready:   'Tap 🎙 to read — or ▶ listen first',
-    listening:'Speaking… tap ⏹ when you\'re done',
-    done:    'Nice! Tap → next, or ↺ try again'
+    ready:      'Tap 🎙 to read — or ▶ listen first',
+    listening:  'Speaking… tap ⏹ when you\'re done',
+    done:       'Nice! Tap → next, or ↺ try again',
+    'error-mic': '⚠ Mic not responding — reload the page and try again',
+    'error-perm':'⚠ Microphone blocked — check browser permissions',
   };
   $linePrompt.textContent=P[state]||'';
+  $linePrompt.style.color = state.startsWith('error') ? 'var(--error)' : '';
 }
 
 // ─── FINISH ───────────────────────────────────────────────────────────────────
