@@ -150,8 +150,47 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .mic-panel{position:fixed;bottom:0;left:0;right:0;z-index:60;background:linear-gradient(to top,rgba(250,250,249,0.98) 70%,transparent);padding:0.5rem 0 0}
 .mic-inner{max-width:660px;margin:0 auto;padding:0.5rem 1.5rem 1.5rem;display:flex;flex-direction:column;align-items:center;gap:0.6rem}
 
-.transcript-strip{width:100%;max-width:500px;min-height:2.2rem;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:50px;padding:0.45rem 1.2rem;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:0.98rem;color:var(--ink-light);text-align:center;backdrop-filter:blur(12px);box-shadow:var(--shadow-sm);display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color 0.2s}
-.transcript-strip.live{display:block;border-color:var(--rose-gold);color:var(--ink-mid)}
+/* WhatsApp-style streaming transcript */
+.transcript-strip{
+  width:100%;max-width:500px;
+  min-height:2.4rem;
+  background:rgba(255,255,255,0.97);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:0.55rem 1.1rem 0.55rem 1.1rem;
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic;font-size:1.05rem;
+  color:var(--ink-light);
+  text-align:left;
+  backdrop-filter:blur(12px);
+  box-shadow:var(--shadow-sm);
+  display:none;
+  /* allow wrapping — no truncation */
+  white-space:pre-wrap;
+  word-break:break-word;
+  overflow:hidden;
+  max-height:5.5rem; /* ~3 lines before scrolling */
+  overflow-y:auto;
+  transition:border-color 0.2s, box-shadow 0.2s;
+  /* smooth height growth */
+  transition:all 0.15s ease;
+}
+.transcript-strip.live{
+  display:block;
+  border-color:var(--rose-gold);
+  color:var(--ink-mid);
+  box-shadow:0 0 0 3px rgba(196,149,106,0.08), var(--shadow-sm);
+}
+/* blinking cursor at end of interim text */
+.transcript-strip.live::after{
+  content:'|';
+  display:inline;
+  color:var(--rose-gold);
+  animation:tsCursor 0.8s step-end infinite;
+  margin-left:1px;
+  font-style:normal;
+}
+@keyframes tsCursor{0%,100%{opacity:1}50%{opacity:0}}
 
 .waveform{display:none;align-items:center;justify-content:center;gap:3px;height:20px}
 .waveform.active{display:flex}
@@ -592,37 +631,38 @@ function tokenize(text){
 }
 
 // ─── SPEECH RECOGNITION ──────────────────────────────────────────────────────
+// Two completely separate jobs:
+//   Interim results  → transcript strip display ONLY  (WhatsApp streaming feel)
+//   Final results    → word highlighting ONLY          (accurate matching)
+// They never cross — smooth display AND accurate highlights.
+let _finalBuffer=''; // accumulates confirmed finals for this line's display
+
 function buildRecognition(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const r=new SR();
   r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
 
   r.onresult=e=>{
-    let interim = '';
-let finalText = '';
+    // Pass 1: collect interim text for the live display strip ONLY
+    let interimText='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(!e.results[i].isFinal) interimText+=e.results[i][0].transcript;
+    }
+    const displayText=(_finalBuffer+(interimText?' '+interimText:'')).trim();
+    if(displayText){
+      $transcriptStrip.textContent=displayText;
+      $transcriptStrip.classList.add('live');
+      $transcriptStrip.scrollTop=$transcriptStrip.scrollHeight;
+    }
 
-for (let i = e.resultIndex; i < e.results.length; i++) {
-  const transcript = e.results[i][0].transcript;
-
-  if (e.results[i].isFinal) {
-    finalText += transcript + ' ';
-    processTranscript(transcript, true);
-  } else {
-    interim += transcript + ' ';
-    processTranscript(transcript, false);
-  }
-}
-
-// 👇 THIS IS THE FIX
-const displayText = (finalText + interim).trim();
-    console.log("Transcript:", displayText);
-
-if (displayText) {
-  $transcriptStrip.textContent = displayText;
-  $transcriptStrip.classList.add('live');
-  $transcriptStrip.style.display = 'block';
-}
-    
+    // Pass 2: final results only → word matching (never interim)
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(!e.results[i].isFinal) continue;
+      const alts=[];
+      for(let k=0;k<e.results[i].length;k++) alts.push(e.results[i][k].transcript);
+      _finalBuffer=(_finalBuffer+' '+e.results[i][0].transcript).trim();
+      processTranscript(alts.join(' '));
+    }
   };
   r.onerror=e=>{ if(e.error!=='no-speech') stopListening(); };
   r.onend=()=>{ if(isListening){ try{r.start();}catch(_){} } };
@@ -637,10 +677,10 @@ function startListening(){
   if(lb){lb.textContent='▶ Listen first';lb.classList.remove('speaking');}
 
   isListening=true; lineStartTime=Date.now();
+  _finalBuffer=''; // reset accumulated transcript for this attempt
   $micBtn.className='mic-btn listening'; $micBtn.textContent='⏹';
   $waveform.classList.add('active');
-  $transcriptStrip.textContent='Listening…'; $transcriptStrip.classList.add('live');
-  $transcriptStrip.style.display = 'block';
+  $transcriptStrip.textContent=''; $transcriptStrip.classList.add('live');
   setPrompt('listening');
   $rereadBtn.style.display='none'; $nextBtn.style.display='none';
 
@@ -653,17 +693,15 @@ function stopListening(finalize=true){
   isListening=false;
   $micBtn.className='mic-btn idle'; $micBtn.textContent='🎙';
   $waveform.classList.remove('active');
-  $transcriptStrip.classList.remove('live'); setTimeout(() => {
-  $transcriptStrip.textContent = '';
-  $transcriptStrip.style.display = 'none';
-}, 1500);
+  $transcriptStrip.classList.remove('live'); $transcriptStrip.textContent='';
   try{recognition?.stop();}catch(_){} recognition=null;
   stopAudioRec(finalize);
   if(finalize) finalizeCurrentLine();
 }
 
 // ─── WORD MATCHING (ESL-friendly) ────────────────────────────────────────────
-function processTranscript(transcript, isFinal){
+// Called ONLY with confirmed final results — no interim noise
+function processTranscript(transcript){
   const spoken=transcript.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(Boolean);
   const wordToks=lineTokens.filter(t=>t.type==='word');
 
