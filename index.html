@@ -621,17 +621,7 @@ if (displayText) {
   $transcriptStrip.classList.add('live');
   $transcriptStrip.style.display = 'block';
 }
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      // collect all alternatives for better ESL coverage
-      const alts=[]; for(let k=0;k<e.results[i].length;k++) alts.push(e.results[i][k].transcript);
-      const combined=alts.join(' ');
-      if(e.results[i].isFinal) processTranscript(combined,true);
-      else interim+=e.results[i][0].transcript;
-    }
-    $transcriptStrip.textContent=interim||'…';
-    if(interim) $transcriptStrip.classList.add('live');
-    $transcriptStrip.style.display = 'block';
-    processTranscript(interim,false);
+    
   };
   r.onerror=e=>{ if(e.error!=='no-speech') stopListening(); };
   r.onend=()=>{ if(isListening){ try{r.start();}catch(_){} } };
