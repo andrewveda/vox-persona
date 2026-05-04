@@ -146,6 +146,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .play-chip{display:inline-flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;font-size:0.68rem;font-family:'DM Sans',sans-serif;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:var(--white);color:var(--ink-light);transition:all 0.2s ease}
 .play-chip:hover{border-color:var(--rose-gold);color:var(--ink)}
 
+/* Auto-Advance & Nudge */
+.auto-next-wrap { width: 100%; height: 3px; background: var(--border-soft); border-radius: 2px; margin-top: 0.8rem; overflow: hidden; position: relative; }
+.auto-next-fill { height: 100%; background: var(--sage); width: 0%; transition: width 1.5s linear; }
+.nudge-text { font-size: 0.75rem; color: var(--ink-light); margin-top: 0.8rem; text-align: center; font-style: italic; }
+
 /* ══════ MIC PANEL ══════ */
 .mic-panel{position:fixed;bottom:0;left:0;right:0;z-index:60;background:linear-gradient(to top,rgba(250,250,249,0.98) 70%,transparent);padding:0.5rem 0 0}
 .mic-inner{max-width:660px;margin:0 auto;padding:0.5rem 1.5rem 1.5rem;display:flex;flex-direction:column;align-items:center;gap:0.6rem}
@@ -165,14 +170,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
   backdrop-filter:blur(12px);
   box-shadow:var(--shadow-sm);
   display:none;
-  /* allow wrapping — no truncation */
   white-space:pre-wrap;
   word-break:break-word;
   overflow:hidden;
   max-height:5.5rem; /* ~3 lines before scrolling */
   overflow-y:auto;
   transition:border-color 0.2s, box-shadow 0.2s;
-  /* smooth height growth */
   transition:all 0.15s ease;
 }
 .transcript-strip.live{
@@ -425,16 +428,11 @@ const LINES = [
 const QUEST_ID = 'Quest 206R';
 
 // ─── ESL-FRIENDLY MATCHING CONFIG ───────────────────────────────────────────
-// "heard"  = word spoken correctly (or close enough)
-// "close"  = approximately right  (amber, no penalty)
-// "missed" = not spoken at all
-const HEARD_EDIT_DIST  = 2;   // up from 1
-const CLOSE_EDIT_DIST  = 3;   // new amber tier
-const SYLLABLE_PREFIX  = 4;   // first N chars match = heard
-const CLEAN_THRESHOLD  = 0.8; // ≥80% heard = "great line" (no missed chip)
-
-// Pace: only flag TOO FAST — slow is fine for ESL
-const FAST_RATIO       = 0.45; // < 45% of expected time = too fast
+const HEARD_EDIT_DIST  = 2;
+const CLOSE_EDIT_DIST  = 3;
+const SYLLABLE_PREFIX  = 4;
+const CLEAN_THRESHOLD  = 0.8;
+const FAST_RATIO       = 0.45;
 
 // ─── STATE ──────────────────────────────────────────────────────────────────
 let playerName='', playerDept='';
@@ -448,6 +446,14 @@ let speechSupported = !!(window.SpeechRecognition||window.webkitSpeechRecognitio
 
 // per-line
 let lineTokens=[], heardSet=new Set(), closeSet=new Set(), lastHeardIdx=-1;
+
+// speech recognition ratchet & timer
+let _finalBuffer        = '';
+let _confirmedIdx       = -1;
+let _interimTimer       = null;
+let _silenceTimer       = null;
+let _restartCount       = 0;
+let _firstResultSeen    = false;
 
 // DOM refs
 let $nameForm,$quizContent,$nameInput,$deptSelect,$startBtn;
@@ -507,7 +513,6 @@ function speakLine(text, btn){
   ttsActive=true;
   const utt=new SpeechSynthesisUtterance(text);
   utt.rate=0.88; utt.pitch=1.05; utt.lang='en-US';
-  // pick a pleasant voice if available
   const voices=window.speechSynthesis.getVoices();
   const pref=voices.find(v=>v.name.includes('Google US English')||v.name.includes('Samantha')||v.name.includes('Karen'));
   if(pref) utt.voice=pref;
@@ -567,29 +572,24 @@ function showCurrentLine(){
   const col=document.createElement('div');
   col.className='bubble-col';
 
-  // speaker name
   const nm=document.createElement('div');
   nm.className='speaker-name';
   nm.textContent=L.speaker==='teacher'?'Teacher':'Scholar';
 
-  // emotion tag
   const et=document.createElement('div');
   et.className='emotion-tag';
   et.style.cssText=`color:${L.emo_color};background:${L.emo_bg};border-color:${L.emo_border}`;
   et.textContent=`${L.emo_emoji} ${L.emo_label}`;
 
-  // voice cue
   const vc=document.createElement('div');
   vc.className='voice-cue';
   vc.textContent=`"${L.voice}"`;
 
-  // TTS listen button
   const lb=document.createElement('button');
   lb.className='listen-btn';
   lb.textContent='▶ Listen first';
   lb.onclick=()=>speakLine(L.text,lb);
 
-  // bubble with tokenised words
   const bub=document.createElement('div');
   bub.className='bubble';
   bub.id=`bub-${currentLine}`;
@@ -631,31 +631,23 @@ function tokenize(text){
 }
 
 // ─── SPEECH RECOGNITION ──────────────────────────────────────────────────────
-// Mobile-first design: Chrome mobile fires isFinal rarely (sometimes only once
-// at the very end), so we MUST use interim for responsive highlighting.
-//
-// Strategy — one-way ratchet:
-//   • Interim  → word highlights + transcript strip (fast, responsive)
-//   • Final    → locks in confirmed words, advances the ratchet floor
-//   • Ratchet  → once a word lights up gold it can NEVER go dark again
-//                so interim flicker never causes backwards movement
-//
-// The ratchet floor (_confirmedIdx) marks the last word locked by a final.
-// Interim matching always starts from _confirmedIdx, never from behind it.
-
-let _finalBuffer        = '';
-let _confirmedIdx       = -1;
-let _interimTimer       = null;
-let _restartCount       = 0;
-let _firstResultSeen    = false;
-
 function buildRecognition(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const r=new SR();
   r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=5;
 
   r.onresult=e=>{
-    _restartCount=0; _firstResultSeen=true; // reset watchdog on any result
+    _restartCount=0; _firstResultSeen=true;
+
+    // ─── 1.5s SILENCE TIMER ───
+    clearTimeout(_silenceTimer);
+    _silenceTimer = setTimeout(() => {
+      if (isListening) {
+        if(window._dbg) window._dbg('SILENCE', '1.5s silence detected — auto-stopping', 'tag-event');
+        stopListening(true);
+      }
+    }, 1500);
+
     let interimText='';
     let hasFinal=false;
 
@@ -685,18 +677,17 @@ function buildRecognition(){
   };
 
   r.onerror=e=>{
-    // 'no-speech' is a normal silence timeout — onend will restart us, ignore it
     if(e.error==='no-speech') return;
     if(e.error==='not-allowed'||e.error==='service-not-allowed'){
       setPrompt('error-perm'); stopListening(false); return;
     }
-    console.warn('SR error:', e.error);
   };
 
   r.onend=()=>{
     if(!isListening) return;
     _restartCount++;
-    // Watchdog: 4 restarts with zero results = mic blocked or SR broken
+    if(window._dbg) window._dbg('SR', `onend fired. _restartCount=${_restartCount}`, 'tag-event');
+
     if(_restartCount>=4 && !_firstResultSeen){
       setPrompt('error-mic'); stopListening(false); return;
     }
@@ -706,7 +697,6 @@ function buildRecognition(){
   return r;
 }
 
-// Called on final chunks — locks words in permanently, advances ratchet floor
 function processAndLock(transcript){
   clearTimeout(_interimTimer);
   const spoken=normalise(transcript);
@@ -722,29 +712,24 @@ function processAndLock(transcript){
           setWordClass(j, res==='heard'?'w-heard':'w-close');
         }
         if(j>lastHeardIdx) lastHeardIdx=j;
-        if(j>_confirmedIdx) _confirmedIdx=j; // advance ratchet floor
+        if(j>_confirmedIdx) _confirmedIdx=j;
         searchFrom=j+1; break;
       }
     }
   }
 }
 
-// Called on interim chunks — highlights speculatively but respects ratchet floor
-// (never touches words already confirmed, never moves lastHeardIdx backwards)
 function processInterim(transcript){
   const spoken=normalise(transcript);
   const wordToks=lineTokens.filter(t=>t.type==='word');
-  // Start from the ratchet floor — never go behind confirmed words
   let searchFrom=_confirmedIdx+1;
-  let interimPeak=_confirmedIdx; // track how far this interim run gets
+  let interimPeak=_confirmedIdx;
 
   for(const sp of spoken){
     for(let j=searchFrom;j<wordToks.length;j++){
       const res=matchWord(sp,wordToks[j].clean);
       if(res==='heard'||res==='close'){
         if(!heardSet.has(j)&&!closeSet.has(j)){
-          // Speculative highlight — only gold (heard), no amber on interim
-          // to keep visual noise low
           if(res==='heard'||res==='close'){
             heardSet.add(j);
             setWordClass(j,'w-heard');
@@ -760,13 +745,13 @@ function processInterim(transcript){
 
 function startListening(){
   if(isListening) return;
-  // stop any TTS
   if(ttsActive){ window.speechSynthesis.cancel(); ttsActive=false; }
   const lb=document.querySelector(`#row-${currentLine} .listen-btn`);
   if(lb){lb.textContent='▶ Listen first';lb.classList.remove('speaking');}
 
   isListening=true; lineStartTime=Date.now();
-  _finalBuffer=''; _confirmedIdx=-1; clearTimeout(_interimTimer);
+  _finalBuffer=''; _confirmedIdx=-1; 
+  clearTimeout(_interimTimer); clearTimeout(_silenceTimer);
   _restartCount=0; _firstResultSeen=false;
   $micBtn.className='mic-btn listening'; $micBtn.textContent='⏹';
   $waveform.classList.add('active');
@@ -781,6 +766,8 @@ function startListening(){
 
 function stopListening(finalize=true){
   isListening=false;
+  clearTimeout(_silenceTimer);
+  clearTimeout(_interimTimer);
   $micBtn.className='mic-btn idle'; $micBtn.textContent='🎙';
   $waveform.classList.remove('active');
   $transcriptStrip.classList.remove('live'); $transcriptStrip.textContent='';
@@ -789,7 +776,6 @@ function stopListening(finalize=true){
   if(finalize) finalizeCurrentLine();
 }
 
-// ─── WORD MATCHING (ESL-friendly) ────────────────────────────────────────────
 function normalise(transcript){
   return transcript.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(Boolean);
 }
@@ -797,22 +783,14 @@ function normalise(transcript){
 function matchWord(spoken, expected){
   if(!spoken||!expected) return 'miss';
   if(spoken===expected) return 'heard';
-  // prefix syllable match (student trails off mid-word)
   if(expected.length>=SYLLABLE_PREFIX && spoken.startsWith(expected.slice(0,SYLLABLE_PREFIX))) return 'heard';
   if(spoken.length>=SYLLABLE_PREFIX && expected.startsWith(spoken.slice(0,SYLLABLE_PREFIX))) return 'heard';
   const ed=editDist(spoken,expected);
   if(ed<=HEARD_EDIT_DIST) return 'heard';
   if(ed<=CLOSE_EDIT_DIST) return 'close';
-  // common ESL substitutions
-  const subs=[
-    ['th','d'],['th','t'],['v','b'],['v','w'],['w','v'],
-    ['z','s'],['s','z'],['r','l'],['l','r'],
-  ];
+  const subs=[['th','d'],['th','t'],['v','b'],['v','w'],['w','v'],['z','s'],['s','z'],['r','l'],['l','r']];
   let norm_sp=spoken, norm_ex=expected;
-  for(const [a,b] of subs){
-    norm_sp=norm_sp.replaceAll(a,b);
-    norm_ex=norm_ex.replaceAll(a,b);
-  }
+  for(const [a,b] of subs){ norm_sp=norm_sp.replaceAll(a,b); norm_ex=norm_ex.replaceAll(a,b); }
   if(norm_sp===norm_ex) return 'heard';
   if(editDist(norm_sp,norm_ex)<=HEARD_EDIT_DIST) return 'heard';
   return 'miss';
@@ -827,7 +805,6 @@ function editDist(a,b){
 }
 
 function setWordClass(wordIdx, cls){
-  // wordIdx = index in filtered word array; map back to token array
   let wi=0;
   for(let i=0;i<lineTokens.length;i++){
     if(lineTokens[i].type!=='word'){continue;}
@@ -853,7 +830,6 @@ function finalizeCurrentLine(){
       setWordClass(wi,'w-done');
     } else if(closeSet.has(wi)){
       close++;
-      // leave amber, still counts as a positive attempt
     } else {
       missedWords.push(tok.text);
       setWordClass(wi,'w-missed');
@@ -864,7 +840,6 @@ function finalizeCurrentLine(){
   totalClose  += close;
   totalMissed += missedWords.length;
 
-  // pace — only flag fast, never punish slow
   const expectedSec=total*0.5;
   const pace=duration < expectedSec*FAST_RATIO ? 'fast' : 'ok';
 
@@ -872,10 +847,51 @@ function finalizeCurrentLine(){
   showLineFeedback(heard, close, total, missedWords, pace);
   updateHUD();
 
-  $rereadBtn.style.display='inline-flex';
-  $skipBtn.style.display='none';
-  $nextBtn.style.display='inline-flex';
-  setPrompt('done');
+  // ─── AUTO-ADVANCE LOGIC ───
+  const pctScore = total > 0 ? Math.round(((heard + close) / total) * 100) : 0;
+
+  if (pctScore >= 60) {
+    // Hide buttons, prepare to advance
+    $rereadBtn.style.display = 'none';
+    $skipBtn.style.display = 'none';
+    $nextBtn.style.display = 'none';
+    setPrompt('Moving to next line...');
+
+    // Inject countdown bar
+    const col = document.querySelector(`#row-${currentLine} .bubble-col`);
+    if(col) {
+      const barWrap = document.createElement('div');
+      barWrap.className = 'auto-next-wrap';
+      const barFill = document.createElement('div');
+      barFill.className = 'auto-next-fill';
+      barWrap.appendChild(barFill);
+      col.appendChild(barWrap);
+      
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          barFill.style.width = '100%';
+        });
+      });
+    }
+
+    setTimeout(() => { advanceLine(); }, 1500);
+
+  } else {
+    // Under 60% — manual retry or skip
+    $rereadBtn.style.display = 'inline-flex';
+    $nextBtn.style.display = 'none';
+    $skipBtn.style.display = 'inline-flex';
+    setPrompt('You can do it! Try again or skip.');
+
+    // Inject gentle nudge
+    const col = document.querySelector(`#row-${currentLine} .bubble-col`);
+    if(col) {
+       const nudge = document.createElement('div');
+       nudge.className = 'nudge-text';
+       nudge.textContent = 'Take a deep breath and try that one again.';
+       col.appendChild(nudge);
+    }
+  }
 }
 
 function showLineFeedback(heard, close, total, missed, pace){
@@ -883,26 +899,28 @@ function showLineFeedback(heard, close, total, missed, pace){
   if(!col) return;
   col.querySelectorAll('.line-feedback,.playback-row').forEach(el=>el.remove());
 
-  const pct=(total>0)?((heard+close)/total):0;
+  const pctRaw = (total > 0) ? ((heard + close) / total) : 0;
+  const pctScore = Math.round(pctRaw * 100);
+  
   const fb=document.createElement('div');
   fb.className='line-feedback';
 
-  // accuracy chip — generous language
+  // Numerical score chip
+  let scoreClass = pctScore === 100 ? 'perfect' : pctRaw >= CLEAN_THRESHOLD ? 'great' : 'try-these';
+  fb.innerHTML += `<span class="fb-chip ${scoreClass}">✦ ${pctScore}%</span>`;
+
   if(heard===total){
     fb.innerHTML+=`<span class="fb-chip perfect">✓ Every word heard!</span>`;
-  } else if(pct>=CLEAN_THRESHOLD){
-    fb.innerHTML+=`<span class="fb-chip great">✦ Great reading</span>`;
+  } else if(pctRaw>=CLEAN_THRESHOLD){
+    fb.innerHTML+=`<span class="fb-chip great">Great reading</span>`;
   } else if(missed.length>0){
-    // "Try these words" — actionable, not accusatory
     fb.innerHTML+=`<span class="fb-chip try-these">Try these: ${missed.slice(0,4).join(', ')}${missed.length>4?'…':''}</span>`;
   }
 
-  // pace — only fast matters
   if(pace==='fast') fb.innerHTML+=`<span class="fb-chip pace-fast">⚡ Slow down a little</span>`;
 
   col.appendChild(fb);
 
-  // playback button
   if(recordedBlobs[currentLine]){
     const pr=document.createElement('div');
     pr.className='playback-row';
@@ -927,10 +945,8 @@ function advanceLine(){
 }
 
 function rereadLine(){
-  // reset word spans
   const bub=document.getElementById(`bub-${currentLine}`);
   if(bub) bub.querySelectorAll('.word').forEach(s=>s.className='word w-pending');
-  // rollback stats
   const last=lineResults[lineResults.length-1];
   if(last){
     totalHeard  -= last.heard;
@@ -940,9 +956,9 @@ function rereadLine(){
     lineResults.pop();
   }
   const col=document.querySelector(`#row-${currentLine} .bubble-col`);
-  if(col) col.querySelectorAll('.line-feedback,.playback-row').forEach(el=>el.remove());
+  if(col) col.querySelectorAll('.line-feedback,.playback-row,.auto-next-wrap,.nudge-text').forEach(el=>el.remove());
   heardSet.clear(); closeSet.clear(); lastHeardIdx=-1; _confirmedIdx=-1;
-  clearTimeout(_interimTimer);
+  clearTimeout(_interimTimer); clearTimeout(_silenceTimer);
   $rereadBtn.style.display='none'; $nextBtn.style.display='none';
   $skipBtn.style.display='inline-flex';
   startListening();
@@ -950,7 +966,6 @@ function rereadLine(){
 
 function skipLine(){
   if(isListening) stopListening(false);
-  // mark all unheard as missed quietly — no drama
   lineTokens.forEach((t,i)=>{
     if(t.type==='word'){
       const el=document.getElementById(`w-${currentLine}-${i}`);
@@ -965,13 +980,10 @@ function skipLine(){
 }
 
 // ─── AUDIO RECORDING ─────────────────────────────────────────────────────────
-// DISABLED on mobile — Android Chrome cannot share the mic between
-// SpeechRecognition and MediaRecorder simultaneously. SR gets no audio and
-// silently fires onend immediately with zero results.
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 function startAudioRec(){
-  if(IS_MOBILE) return; // skip on mobile — SR needs exclusive mic access
+  if(IS_MOBILE) return; 
   lineAudioChunks=[];
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
     mediaRecorder=new MediaRecorder(stream);
@@ -1014,7 +1026,7 @@ function setPrompt(state){
     'error-mic': '⚠ Mic not responding — reload the page and try again',
     'error-perm':'⚠ Microphone blocked — check browser permissions',
   };
-  $linePrompt.textContent=P[state]||'';
+  $linePrompt.textContent=P[state]||state;
   $linePrompt.style.color = state.startsWith('error') ? 'var(--error)' : '';
 }
 
@@ -1191,7 +1203,6 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(n)$nameInput.value=n; if(d)$deptSelect.value=d;
   }catch(_){}
 
-  // preload voices for TTS
   window.speechSynthesis?.getVoices();
   window.speechSynthesis?.addEventListener('voiceschanged',()=>window.speechSynthesis.getVoices());
 
@@ -1324,18 +1335,15 @@ document.addEventListener('click',function(e){
     $log.appendChild(row);
     $log.scrollTop = $log.scrollHeight;
 
-    // also mirror to real console for USB debugging
     console.log(text);
   }
 
   function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  // ── Toggle ──
   $toggle.onclick = () => {
     panelOpen = !panelOpen;
     $panel.classList.toggle('open', panelOpen);
     $toggle.classList.toggle('active', panelOpen);
-    // push mic panel up when debug panel is open
     const mp = document.getElementById('micPanel');
     if(mp) mp.style.bottom = panelOpen ? '52vh' : '0';
   };
@@ -1343,7 +1351,6 @@ document.addEventListener('click',function(e){
   $clear.onclick = () => { $log.innerHTML=''; logLines=[]; eventCount=0; $diCount.textContent='0'; };
   $copy.onclick  = () => { navigator.clipboard?.writeText(logLines.join('\n')).then(()=>{ $copy.textContent='Copied!'; setTimeout(()=>$copy.textContent='Copy log',1500); }); };
 
-  // ── Static info ──
   const hasSR = !!(window.SpeechRecognition||window.webkitSpeechRecognition);
   $diSR.textContent = hasSR ? '✓ yes' : '✗ NO';
   $diSR.style.color = hasSR ? '#5ecb5e' : '#ff6b6b';
@@ -1358,21 +1365,19 @@ document.addEventListener('click',function(e){
     dbg('MIC','DENIED: '+e.message,'tag-error');
   });
 
-  // ── Monkey-patch buildRecognition to intercept SR events ──
-  // We wait for the IIFE to finish then wrap it
-  window.addEventListener('load', ()=>{
-    dbg('INIT','Page loaded — patching SR','tag-event');
+  window._dbg = dbg;
 
-    // Patch the global SR constructor so every instance is observed
-    const OrigSR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if(!OrigSR){ dbg('SR','Not supported on this device','tag-error'); return; }
+  dbg('INIT','Patching SR synchronously','tag-event');
 
+  const OrigSR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!OrigSR){ dbg('SR','Not supported on this device','tag-error'); } 
+  else {
     function PatchedSR(){
       const r = new OrigSR();
 
       const origStart = r.start.bind(r);
       r.start = function(){
-        dbg('SR','start() called','tag-event');
+        dbg('SR',`start() called [lang=${r.lang}, cont=${r.continuous}, int=${r.interimResults}]`,'tag-event');
         try{ origStart(); } catch(e){ dbg('SR','start() threw: '+e.message,'tag-error'); throw e; }
       };
 
@@ -1382,7 +1387,6 @@ document.addEventListener('click',function(e){
         try{ origStop(); } catch(e){}
       };
 
-      // Wrap event handlers via defineProperty so we capture them after they're set
       let _onresult=null, _onerror=null, _onend=null, _onstart=null;
 
       Object.defineProperty(r,'onstart',{
@@ -1398,13 +1402,9 @@ document.addEventListener('click',function(e){
               const res=e.results[i];
               const best=res[0].transcript;
               const conf=(res[0].confidence*100).toFixed(0)+'%';
-              if(res.isFinal){
-                dbg('FINAL', '"'+best+'" conf='+conf, 'tag-final');
-              } else {
-                dbg('INTERIM','"'+best+'"','tag-interim');
-              }
+              if(res.isFinal){ dbg('FINAL', '"'+best+'" conf='+conf, 'tag-final'); } 
+              else { dbg('INTERIM','"'+best+'"','tag-interim'); }
             }
-            // call the original handler
             fn && fn(e);
           });
         },
@@ -1426,7 +1426,6 @@ document.addEventListener('click',function(e){
         set(fn){
           _onend=fn;
           r.addEventListener('end',()=>{
-            dbg('SR','onend fired','tag-event');
             fn && fn();
           });
         },
@@ -1436,18 +1435,13 @@ document.addEventListener('click',function(e){
       return r;
     }
 
-    // Replace the constructor globally so buildRecognition picks it up
     if(window.SpeechRecognition)       window.SpeechRecognition       = PatchedSR;
     if(window.webkitSpeechRecognition) window.webkitSpeechRecognition = PatchedSR;
-
     dbg('INIT','SR constructor patched — ready','tag-info');
-  });
+  }
 
-  // ── Also intercept transcript strip updates ──
   const strip = document.getElementById('transcriptStrip');
   if(strip){
-    const origDesc = Object.getOwnPropertyDescriptor(Node.prototype,'textContent');
-    // lightweight MutationObserver is cleaner
     new MutationObserver(()=>{
       if(strip.textContent.trim())
         dbg('STRIP', strip.textContent.trim().substring(0,80), 'tag-strip');
