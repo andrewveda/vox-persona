@@ -1,0 +1,339 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dino Pac-Man Library Chase</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #050505;
+      font-family: 'Courier New', monospace;
+      color: #ffe66d;
+    }canvas {
+  display: block;
+  background: linear-gradient(to bottom, #0a0a0a, #1b1208);
+}
+
+#ui {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  background: rgba(0,0,0,0.7);
+  padding: 12px;
+  border: 2px solid #ffe66d;
+  border-radius: 8px;
+  box-shadow: 0 0 15px #ffcc00;
+}
+
+#title {
+  font-size: 22px;
+  margin-bottom: 6px;
+  color: #ffdd55;
+  text-shadow: 0 0 10px #ffcc00;
+}
+
+#controls {
+  font-size: 14px;
+  color: #ffffff;
+  margin-top: 5px;
+}
+
+#gameover {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 48px;
+  color: #ff4444;
+  text-shadow: 0 0 20px red;
+  display: none;
+  z-index: 20;
+  text-align: center;
+}
+
+#restart {
+  font-size: 18px;
+  margin-top: 10px;
+  color: #fff;
+}
+
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div id="title">DINO PAC-MAN</div>
+    <div>Score: <span id="score">0</span></div>
+    <div id="controls">Arrow Keys / WASD to move</div>
+  </div>  <div id="gameover">
+    GAME OVER
+    <div id="restart">Refresh to restart</div>
+  </div><canvas id="game"></canvas>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const scoreEl = document.getElementById('score');
+    const gameoverEl = document.getElementById('gameover');
+
+    let score = 0;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function beep(freq, duration) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.frequency.value = freq;
+      osc.type = 'square';
+
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    const player = {
+      x: 120,
+      y: 120,
+      size: 55,
+      speed: 3,
+      dx: 0,
+      dy: 0,
+      mouthOpen: true,
+      angle: 0
+    };
+
+    const pellets = [];
+    const books = [];
+
+    const mazeWalls = [];
+
+    function createMaze() {
+      for (let i = 0; i < canvas.width; i += 120) {
+        mazeWalls.push({x: i, y: 200, w: 30, h: 300});
+      }
+
+      for (let i = 200; i < canvas.width - 100; i += 160) {
+        mazeWalls.push({x: i, y: 600, w: 100, h: 25});
+      }
+
+      for (let i = 100; i < canvas.width - 200; i += 200) {
+        mazeWalls.push({x: i, y: 400, w: 25, h: 180});
+      }
+    }
+
+    createMaze();
+
+    for (let i = 0; i < 70; i++) {
+      pellets.push({
+        x: Math.random() * (canvas.width - 50) + 25,
+        y: Math.random() * (canvas.height - 50) + 25,
+        r: 6
+      });
+    }
+
+    const bookColors = ['#b22222', '#1e90ff', '#228b22', '#9932cc'];
+
+    for (let i = 0; i < 4; i++) {
+      books.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        w: 45,
+        h: 60,
+        color: bookColors[i],
+        speed: 1.7 + Math.random()
+      });
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = '#0b0704';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      for (let i = 0; i < canvas.width; i += 80) {
+        ctx.fillStyle = '#1b1208';
+        ctx.fillRect(i, 0, 40, canvas.height);
+      }
+
+      for (let i = 0; i < canvas.height; i += 100) {
+        ctx.fillStyle = 'rgba(255,180,80,0.03)';
+        ctx.fillRect(0, i, canvas.width, 10);
+      }
+    }
+
+    function drawMaze() {
+      mazeWalls.forEach(w => {
+        ctx.fillStyle = '#3b2413';
+        ctx.fillRect(w.x, w.y, w.w, w.h);
+
+        ctx.strokeStyle = '#8b5a2b';
+        ctx.strokeRect(w.x, w.y, w.w, w.h);
+
+        for (let i = 0; i < w.h; i += 30) {
+          ctx.fillStyle = '#5a3820';
+          ctx.fillRect(w.x + 5, w.y + i, w.w - 10, 3);
+        }
+      });
+    }
+
+    function drawPellets() {
+      pellets.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffe66d';
+        ctx.shadowColor = '#ffcc00';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+    }
+
+    function drawPlayer() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.rotate(player.angle);
+
+      const jaw = player.mouthOpen ? 0.7 : 0.2;
+
+      ctx.fillStyle = '#6b4b2a';
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.arc(0,0,player.size, jaw, Math.PI * 2 - jaw);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#7f5a35';
+      ctx.beginPath();
+      ctx.arc(-10,-10,player.size*0.85,0,Math.PI*2);
+      ctx.fill();
+
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(10,-18,6,0,Math.PI*2);
+      ctx.fill();
+
+      ctx.fillStyle = '#f5e6c8';
+      for(let i=0;i<7;i++){
+        ctx.beginPath();
+        ctx.moveTo(20 + i*4, 10);
+        ctx.lineTo(25 + i*4, 0);
+        ctx.lineTo(30 + i*4, 10);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawBooks() {
+      books.forEach(book => {
+        ctx.fillStyle = book.color;
+        ctx.fillRect(book.x, book.y, book.w, book.h);
+
+        ctx.strokeStyle = '#f0d080';
+        ctx.strokeRect(book.x, book.y, book.w, book.h);
+
+        ctx.fillStyle = '#f5d76e';
+        ctx.font = 'bold 16px Courier New';
+        ctx.fillText('DK', book.x + 8, book.y + 25);
+
+        ctx.font = '10px Courier New';
+        ctx.fillText('ENCYCLOPEDIA', book.x + 3, book.y + 42);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillRect(book.x + 4, book.y + 4, 6, book.h - 8);
+      });
+    }
+
+    function updatePlayer() {
+      player.x += player.dx;
+      player.y += player.dy;
+
+      if (player.dx > 0) player.angle = 0;
+      if (player.dx < 0) player.angle = Math.PI;
+      if (player.dy > 0) player.angle = Math.PI / 2;
+      if (player.dy < 0) player.angle = -Math.PI / 2;
+
+      player.mouthOpen = !player.mouthOpen;
+
+      pellets.forEach((p, index) => {
+        const dist = Math.hypot(player.x - p.x, player.y - p.y);
+        if (dist < player.size) {
+          pellets.splice(index, 1);
+          score += 10;
+          scoreEl.textContent = score;
+          beep(420, 0.08);
+        }
+      });
+    }
+
+    function updateBooks() {
+      books.forEach(book => {
+        const angle = Math.atan2(player.y - book.y, player.x - book.x);
+
+        book.x -= Math.cos(angle) * book.speed;
+        book.y -= Math.sin(angle) * book.speed;
+
+        const dist = Math.hypot(player.x - book.x, player.y - book.y);
+
+        if (dist < 50) {
+          beep(100, 0.5);
+          gameoverEl.style.display = 'block';
+          cancelAnimationFrame(animationId);
+        }
+      });
+    }
+
+    document.addEventListener('keydown', e => {
+      switch(e.key.toLowerCase()) {
+        case 'arrowup':
+        case 'w':
+          player.dx = 0;
+          player.dy = -player.speed;
+          break;
+
+        case 'arrowdown':
+        case 's':
+          player.dx = 0;
+          player.dy = player.speed;
+          break;
+
+        case 'arrowleft':
+        case 'a':
+          player.dx = -player.speed;
+          player.dy = 0;
+          break;
+
+        case 'arrowright':
+        case 'd':
+          player.dx = player.speed;
+          player.dy = 0;
+          break;
+      }
+    });
+
+    function animate() {
+      drawBackground();
+      drawMaze();
+      drawPellets();
+      drawBooks();
+      drawPlayer();
+
+      updatePlayer();
+      updateBooks();
+
+      animationId = requestAnimationFrame(animate);
+    }
+
+    let animationId;
+    animate();
+  </script></body>
+</html>
