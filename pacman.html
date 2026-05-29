@@ -325,7 +325,7 @@ function initLevel(){
 ];  books=BC.map((col,i)=>({
     x:9,y:9,dir:'up',color:col,
     mode:'scatter',modeT:200+i*60,scared:false,
-   imgIdx:0
+   imgIdx:0,
      scatterTarget:[[1,1],[17,1],[1,19],[17,19]][i],
     label:['TRIASSIC','JURASSIC','CRETAC.','EXTINCT.'][i],
   }));
@@ -710,26 +710,30 @@ function drawBook(b){
   ctx.clip();
 
   if(!scared){
-    // ── draw real DK book cover image inside ghost shape ──
-    const img=bookImgs[b.imgIdx];
-   if(img.complete&&img.naturalWidth>0){
+  const img = bookImgs[b.imgIdx];
 
-  ctx.drawImage(img, -8, -10, 16, 20);
+  if(img.complete && img.naturalWidth > 0){
 
-  // tint each DK logo differently
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = b.color;
-  ctx.fillRect(-8, -10, 16, 20);
+    ctx.drawImage(img, -8, -10, 16, 20);
 
-  ctx.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = b.color;
+    ctx.fillRect(-8, -10, 16, 20);
 
-}
-    } else {
-      // fallback solid fill while image loads
-      ctx.fillStyle=col;ctx.fillRect(L-2,T-2,w+4,h+4);
-    }
+    ctx.globalCompositeOperation = 'source-over';
+
   } else {
-    // scared — blue tint
+
+    ctx.fillStyle = col;
+    ctx.fillRect(L-2,T-2,w+4,h+4);
+
+  }
+
+} else {
+  // scared — blue tint
+  ctx.fillStyle=col;
+  ctx.fillRect(L-2,T-2,w+4,h+4);
+}
     ctx.fillStyle=col;ctx.fillRect(L-2,T-2,w+4,h+4);
   }
   ctx.restore(); // end clip
