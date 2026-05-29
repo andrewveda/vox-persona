@@ -141,6 +141,16 @@ canvas { display:block; }
 const BOOK_URLS = [
   'https://cdn.jsdelivr.net/gh/andrewveda/1@main/DK_logo.png'
 ];
+  // ═══════════════════════════════════════════════════════
+//  DINO IMAGES (Loaded from your GitHub repo)
+// ═══════════════════════════════════════════════════════
+const DINO_IMG_OPEN = new Image();
+DINO_IMG_OPEN.crossOrigin = 'anonymous';
+DINO_IMG_OPEN.src = 'https://cdn.jsdelivr.net/gh/andrewveda/1@main/dino_jaws_open.png';
+
+const DINO_IMG_CLOSED = new Image();
+DINO_IMG_CLOSED.crossOrigin = 'anonymous';
+DINO_IMG_CLOSED.src = 'https://cdn.jsdelivr.net/gh/andrewveda/1@main/dino_mouth_closed.png';
 const bookImgs = BOOK_URLS.map(url => {
   const img = new Image();
   img.crossOrigin = 'anonymous';
@@ -486,201 +496,44 @@ function drawPellets(){
 }
 
 // ═══════════════════════════════════════════════════════
-//  T-REX — torso + prominent snapping jaws
+//  T-REX — Image Sprite Version
 // ═══════════════════════════════════════════════════════
 function drawDino(){
-  const cx=dX*TILE+TILE/2, cy=dY*TILE+TILE/2;
-  const S=TILE*0.85; // base scale unit
+  const cx = dX * TILE + TILE / 2;
+  const cy = dY * TILE + TILE / 2;
+  
+  // Make the Dino bigger than a standard tile. Adjust this multiplier as needed.
+  const S = TILE * 1.8; 
 
   ctx.save();
-  ctx.translate(cx,cy);
-  const rotMap={right:0,left:Math.PI,up:-Math.PI/2,down:Math.PI/2};
-  ctx.rotate(rotMap[dDir]||0);
+  ctx.translate(cx, cy);
 
-  const jaw=(jawAng*Math.PI)/180; // 0..~0.66 rad
-
-  // ── BODY / TORSO (behind head, centered slightly left) ──
-  // Torso is an oval behind the head
-  ctx.shadowColor='#55ff88';ctx.shadowBlur=14;
-  const bodyGrd=ctx.createRadialGradient(-S*0.28,0,S*0.05,-S*0.2,0,S*0.72);
-  bodyGrd.addColorStop(0,'#8ab860');
-  bodyGrd.addColorStop(0.5,'#5c8035');
-  bodyGrd.addColorStop(1,'#2e4418');
-  ctx.beginPath();
-  ctx.ellipse(-S*0.28,S*0.05, S*0.58,S*0.48, 0,0,Math.PI*2);
-  ctx.fillStyle=bodyGrd;ctx.fill();
-
-  // belly lighter patch
-  ctx.beginPath();
-  ctx.ellipse(-S*0.3,S*0.15, S*0.3,S*0.28, 0,0,Math.PI*2);
-  ctx.fillStyle='rgba(200,220,160,0.18)';ctx.fill();
-
-  // ── TINY VESTIGIAL ARM ──
-  ctx.strokeStyle='#4a6828';ctx.lineWidth=3;ctx.lineCap='round';
-  ctx.beginPath();
-  ctx.moveTo(-S*0.05, S*0.1);
-  ctx.lineTo( S*0.1,  S*0.3);
-  ctx.lineTo( S*0.06, S*0.42);
-  ctx.stroke();
-  // two tiny claws
-  [[-0.04,0.06],[0.04,0.02]].forEach(([ox,oy])=>{
-    ctx.beginPath();
-    ctx.moveTo(S*0.06+ox*S, S*0.42+oy*S);
-    ctx.lineTo(S*0.06+ox*S+S*0.04, S*0.42+oy*S+S*0.06);
-    ctx.strokeStyle='#2a3a14';ctx.lineWidth=1.5;ctx.stroke();
-  });
-
-  // ── NECK connecting body to head ──
-  ctx.beginPath();
-  ctx.moveTo(-S*0.12,-S*0.22);
-  ctx.quadraticCurveTo(S*0.08,-S*0.18, S*0.15,-S*0.05);
-  ctx.quadraticCurveTo(S*0.12, S*0.08, -S*0.05, S*0.12);
-  ctx.quadraticCurveTo(-S*0.28,S*0.08, -S*0.28,-S*0.1);
-  ctx.closePath();
-  ctx.fillStyle='#5c8035';ctx.fill();
-  ctx.shadowBlur=0;
-
-  // ── HEAD SKULL (large dome) ──
-  const headGrd=ctx.createRadialGradient(S*0.05,-S*0.22,S*0.04,S*0.08,-S*0.1,S*0.55);
-  headGrd.addColorStop(0,'#a8d070');
-  headGrd.addColorStop(0.35,'#72a040');
-  headGrd.addColorStop(0.7,'#4e7028');
-  headGrd.addColorStop(1,'#2c4015');
-  ctx.beginPath();
-  // skull shape: roughly egg-shaped, wider at back, narrows to snout
-  ctx.moveTo(S*0.55, -jaw*0.3*S); // snout tip upper
-  ctx.quadraticCurveTo(S*0.62,-S*0.08, S*0.38,-S*0.32);
-  ctx.quadraticCurveTo(S*0.1,-S*0.52, -S*0.18,-S*0.42);
-  ctx.quadraticCurveTo(-S*0.42,-S*0.28, -S*0.38,-S*0.02);
-  ctx.quadraticCurveTo(-S*0.3, S*0.18, -S*0.05, S*0.18);
-  ctx.quadraticCurveTo(S*0.25, S*0.22,  S*0.52, S*0.06);
-  ctx.quadraticCurveTo(S*0.62, S*0.0,   S*0.55, -jaw*0.3*S);
-  ctx.closePath();
-  ctx.fillStyle=headGrd;ctx.fill();
-
-  // brow ridge shadow
-  ctx.beginPath();
-  ctx.moveTo(-S*0.05,-S*0.42);
-  ctx.quadraticCurveTo(S*0.2,-S*0.54, S*0.38,-S*0.32);
-  ctx.quadraticCurveTo(S*0.22,-S*0.44, -S*0.05,-S*0.42);
-  ctx.fillStyle='rgba(0,0,0,0.22)';ctx.fill();
-
-  // skull highlight
-  ctx.beginPath();
-  ctx.ellipse(S*0.04,-S*0.28, S*0.22,S*0.12, -0.4,0,Math.PI*2);
-  ctx.fillStyle='rgba(180,240,120,0.14)';ctx.fill();
-
-  // ── UPPER JAW — prominent, long, projects forward ──
-  const ujGrd=ctx.createLinearGradient(S*0.0,-S*0.08, S*0.7,S*0.08);
-  ujGrd.addColorStop(0,'#7ab048');
-  ujGrd.addColorStop(0.6,'#5a8830');
-  ujGrd.addColorStop(1,'#3a5820');
-  ctx.beginPath();
-  // top edge of upper jaw
-  ctx.moveTo(S*0.5,-S*0.06);
-  ctx.quadraticCurveTo(S*0.72,-S*0.04, S*0.82, S*0.0);
-  // snout tip curves
-  ctx.quadraticCurveTo(S*0.88, S*0.04,  S*0.85, S*(0.04+jaw*0.35));
-  // bottom edge of upper jaw (= top of mouth gap)
-  ctx.quadraticCurveTo(S*0.78, S*(0.06+jaw*0.4), S*0.6, S*(0.06+jaw*0.28));
-  ctx.quadraticCurveTo(S*0.5,  S*(0.06+jaw*0.2), S*0.42, S*0.1);
-  ctx.closePath();
-  ctx.fillStyle=ujGrd;ctx.fill();
-  ctx.strokeStyle='#2e4a18';ctx.lineWidth=0.8;ctx.stroke();
-
-  // nostril on upper jaw
-  ctx.beginPath();
-  ctx.ellipse(S*0.65,-S*0.025, S*0.04,S*0.028, 0.3,0,Math.PI*2);
-  ctx.fillStyle='#1a2a08';ctx.fill();
-
-  // ── LOWER JAW — smaller, drops open ──
-  const ljGrd=ctx.createLinearGradient(S*0.4,S*0.05, S*0.82,S*0.22);
-  ljGrd.addColorStop(0,'#5a7830');
-  ljGrd.addColorStop(1,'#344818');
-  ctx.beginPath();
-  ctx.moveTo(S*0.42, S*0.1);
-  ctx.quadraticCurveTo(S*0.6,  S*(0.1+jaw*0.25), S*0.78, S*(0.08+jaw*0.5));
-  ctx.quadraticCurveTo(S*0.84, S*(0.1+jaw*0.6),  S*0.82, S*(0.14+jaw*0.72));
-  ctx.quadraticCurveTo(S*0.72, S*(0.16+jaw*0.78), S*0.55, S*(0.16+jaw*0.65));
-  ctx.quadraticCurveTo(S*0.44, S*(0.14+jaw*0.5),  S*0.38, S*0.22);
-  ctx.closePath();
-  ctx.fillStyle=ljGrd;ctx.fill();
-  ctx.strokeStyle='#2a3a14';ctx.lineWidth=0.8;ctx.stroke();
-
-  // ── MOUTH INTERIOR ──
-  ctx.beginPath();
-  ctx.moveTo(S*0.44, S*0.1);
-  ctx.quadraticCurveTo(S*0.65, S*(0.08+jaw*0.3), S*0.84, S*(0.12+jaw*0.6));
-  ctx.quadraticCurveTo(S*0.65, S*(0.12+jaw*0.55), S*0.44, S*0.16);
-  ctx.closePath();
-  const mouthGrd=ctx.createLinearGradient(S*0.44,S*0.12, S*0.84,S*(0.12+jaw*0.6));
-  mouthGrd.addColorStop(0,'#cc2810');
-  mouthGrd.addColorStop(0.5,'#ff4020');
-  mouthGrd.addColorStop(1,'#882010');
-  ctx.fillStyle=mouthGrd;ctx.fill();
-
-  // ── UPPER TEETH (hang down from upper jaw) ──
-  const nUT=6;
-  for(let i=0;i<nUT;i++){
-    const t2=(i+0.5)/nUT;
-    const tx=S*(0.46+t2*0.36);
-    const ty=S*(0.08+jaw*0.28*t2);
-    const th=S*(0.06+0.02*Math.sin(i*1.3)); // varying length
-    ctx.beginPath();
-    ctx.moveTo(tx-S*0.02, ty);
-    ctx.lineTo(tx, ty+th);
-    ctx.lineTo(tx+S*0.02, ty);
-    ctx.fillStyle='#f8f0cc';ctx.fill();
-    ctx.strokeStyle='#c8aa60';ctx.lineWidth=0.4;ctx.stroke();
+  // Handle rotation and mirroring so the Dino doesn't end up upside down
+  if (dDir === 'left') {
+    ctx.scale(-1, 1); // Flip horizontally
+  } else if (dDir === 'up') {
+    ctx.rotate(-Math.PI / 2); // Point up
+  } else if (dDir === 'down') {
+    ctx.rotate(Math.PI / 2); // Point down
   }
+  // 'right' is the default assumption for the source image
 
-  // ── LOWER TEETH (point up from lower jaw) ──
-  const nLT=4;
-  for(let i=0;i<nLT;i++){
-    const t2=(i+0.5)/nLT;
-    const tx=S*(0.48+t2*0.3);
-    const ty=S*(0.14+jaw*0.58*t2);
-    const th=S*0.05;
+  // Determine which image to use based on the existing jawOpen boolean
+  const currentSprite = jawOpen ? DINO_IMG_OPEN : DINO_IMG_CLOSED;
+
+  if (currentSprite.complete && currentSprite.naturalWidth > 0) {
+    // Draw the image centered on the tile
+    ctx.drawImage(currentSprite, -S / 2, -S / 2, S, S);
+  } else {
+    // Fallback if the image hasn't loaded yet
+    ctx.fillStyle = '#5c8035';
     ctx.beginPath();
-    ctx.moveTo(tx-S*0.018, ty);
-    ctx.lineTo(tx, ty-th);
-    ctx.lineTo(tx+S*0.018, ty);
-    ctx.fillStyle='#f8f0cc';ctx.fill();
+    ctx.arc(0, 0, TILE/2, 0, Math.PI * 2);
+    ctx.fill();
   }
-
-  // ── SCALES on head ──
-  ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=0.5;
-  [[S*0.1,-S*0.18],[S*0.25,-S*0.28],[S*0.0,-S*0.08],[-S*0.15,-S*0.24],[S*0.18,-S*0.05]].forEach(([sx,sy])=>{
-    ctx.beginPath();ctx.ellipse(sx,sy,S*0.08,S*0.055,Math.atan2(sy,sx),0,Math.PI*2);ctx.stroke();
-  });
-
-  // ── EYE — set back on skull ──
-  const eX=S*0.0, eY=-S*0.28;
-  // orbital brow bump
-  ctx.beginPath();ctx.ellipse(eX,eY-S*0.1, S*0.16,S*0.06,-0.3,0,Math.PI*2);
-  ctx.fillStyle='#384a1a';ctx.fill();
-  // amber sclera
-  ctx.beginPath();ctx.ellipse(eX,eY,S*0.155,S*0.14,0,0,Math.PI*2);
-  ctx.fillStyle='#c89018';ctx.shadowColor='#ffcc44';ctx.shadowBlur=4;ctx.fill();ctx.shadowBlur=0;
-  // iris
-  ctx.beginPath();ctx.ellipse(eX,eY,S*0.1,S*0.11,0,0,Math.PI*2);
-  ctx.fillStyle='#9a6010';ctx.fill();
-  // vertical slit pupil
-  ctx.beginPath();ctx.ellipse(eX,eY,S*0.032,S*0.092,0,0,Math.PI*2);
-  ctx.fillStyle='#050108';ctx.fill();
-  // highlight
-  ctx.beginPath();ctx.arc(eX-S*0.04,eY-S*0.045, S*0.034,0,Math.PI*2);
-  ctx.fillStyle='rgba(255,255,255,0.6)';ctx.fill();
-  // eyelid
-  ctx.beginPath();ctx.ellipse(eX,eY,S*0.155,S*0.07,0,Math.PI,Math.PI*2);
-  ctx.strokeStyle='#243014';ctx.lineWidth=1.2;ctx.stroke();
 
   ctx.restore();
 }
-
-// ═══════════════════════════════════════════════════════
-//  GHOST-BOOK — classic ghost shape + real DK cover image
-// ═══════════════════════════════════════════════════════
 function drawBook(b){
   const cx=b.x*TILE+TILE/2, cy=b.y*TILE+TILE/2;
   const w=TILE*0.86, h=TILE*1.0;
