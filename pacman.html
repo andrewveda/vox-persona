@@ -152,15 +152,31 @@ const Speech=(() => {
   function loadVoices(){
     voices=synth.getVoices();
     if(!voices.length)return;
-    // Prefer British English
+
+    // Prefer en-GB voices (true British TTS)
     const brit=voices.filter(v=>/en-GB/i.test(v.lang));
     const en=voices.filter(v=>v.lang.startsWith('en'));
     const pool=brit.length?brit:(en.length?en:voices);
 
-    rexVoice=pool.find(v=>/male|guy|david|daniel|tom|george|arthur|oliver/i.test(v.name))||pool[0];
-    narratorVoice=pool.find(v=>/female|kate|serena|moira|fiona|amy|emily/i.test(v.name))||pool.find(v=>v!==rexVoice)||pool[0];
-    bookVoice=pool.find(v=>v!==rexVoice&&v!==narratorVoice)||pool.find(v=>/junior|reed|sandy/i.test(v.name))||narratorVoice;
+    // Pick distinctly different voices where possible
+    // Male-sounding: Daniel (en-GB), David, Google UK English Male
+    rexVoice=pool.find(v=>/Daniel|David|Google UK English Male|Oliver|Arthur|en-GB.*male/i.test(v.name))
+      ||brit.find(v=>v.name.toLowerCase().includes('male'))
+      ||pool[0];
+
+    // Female-sounding: Kate, Serena, Google UK English Female, Moira
+    narratorVoice=pool.find(v=>/Kate|Serena|Google UK English Female|Moira|Fiona|Amy|Victoria|en-GB.*female/i.test(v.name))
+      ||brit.find(v=>v!==rexVoice)
+      ||pool.find(v=>v!==rexVoice)
+      ||pool[0];
+
+    // Third voice for books — any remaining en-GB, else fall back
+    bookVoice=brit.find(v=>v!==rexVoice&&v!==narratorVoice)
+      ||pool.find(v=>v!==rexVoice&&v!==narratorVoice)
+      ||narratorVoice;
+
     ready=true;
+    console.log('Voices loaded — Rex:',rexVoice?.name,'Narrator:',narratorVoice?.name,'Book:',bookVoice?.name);
   }
   synth.onvoiceschanged=loadVoices;
   loadVoices();setTimeout(loadVoices,500);
@@ -583,9 +599,9 @@ function update(dt){
       dragMoveTimer++;
       if(dragMoveTimer%6===0)SFX.drag();
 
-      // Capture when dino reaches the pen entrance tile (9,7) — one tile above pen opening
-      // The dino cannot enter pen tiles (type 4), so we check the entrance tile instead
-      if(dX===9&&dY===7){
+      // Pen entrance: col 8 row 7 and col 10 row 7 are the two reachable tiles above the pen
+      // (col 9 row 7 is a wall — dino cannot be there)
+      if((dX===8||dX===10)&&dY===7){
         captureBook(dragging);
       }
     }
@@ -597,8 +613,8 @@ function update(dt){
     b.releaseTimer--;
     if(b.releaseTimer<=0){
       b.released=true;
-      // Move book to pen exit tile (just above pen opening)
-      b.x=9;b.y=7;b.dir='up';
+      // Alternate between the two pen entrance tiles (8,7) and (10,7)
+      b.x=(b.id%2===0)?8:10;b.y=7;b.dir='up';
     }
   });
 
@@ -741,10 +757,17 @@ function drawMaze(){
   const pw=(PEN_RECT.x2-PEN_RECT.x1+1)*TILE,ph=(PEN_RECT.y2-PEN_RECT.y1+1)*TILE;
   ctx.strokeStyle='rgba(140,60,220,0.5)';ctx.lineWidth=1.5;
   ctx.strokeRect(px,py,pw,ph);
-  // Pen label
-  ctx.fillStyle='rgba(180,120,255,0.4)';ctx.font='7px Courier New';ctx.textAlign='center';
-  ctx.fillText('PEN',px+pw/2,py+ph/2+2);
-  ctx.textAlign='left';
+  // Pen entrance markers — pulsing arrows at (8,7) and (10,7)
+  const pulse=0.5+0.5*Math.sin(animF*0.12);
+  [[8,7],[10,7]].forEach(([ec,er])=>{
+    const ex=ec*TILE+TILE/2,ey=er*TILE+TILE/2;
+    ctx.save();
+    ctx.globalAlpha=0.35+0.35*pulse;
+    ctx.fillStyle='#cc88ff';
+    ctx.font='bold 9px Courier New';ctx.textAlign='center';
+    ctx.fillText('▼',ex,ey+3);
+    ctx.restore();
+  });
 }
 
 function drawPellets(){
