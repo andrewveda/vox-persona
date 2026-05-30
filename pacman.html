@@ -5,99 +5,88 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>DINO-PAC: Haunted Library</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body {
-  background:#0a0608;
-  display:flex; flex-direction:column; align-items:center;
-  min-height:100vh; font-family:'Courier New',monospace;
-  overflow:hidden; touch-action:none; user-select:none;
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#09060f;
+  display:flex;flex-direction:column;align-items:center;
+  min-height:100vh;font-family:'Courier New',monospace;
+  overflow:hidden;touch-action:none;user-select:none;
 }
-#header {
-  width:100%; display:flex; justify-content:space-between; align-items:center;
-  padding:5px 12px; background:#110d0f; border-bottom:2px solid #3a1a2a; z-index:10; flex-shrink:0;
+#header{
+  width:100%;display:flex;justify-content:space-between;align-items:center;
+  padding:5px 12px;background:#110d1a;border-bottom:2px solid #2a1440;z-index:10;flex-shrink:0;
 }
-#score-display { color:#f0c040; font-size:clamp(11px,3.2vw,16px); font-weight:bold; text-shadow:0 0 8px #f0c040aa; letter-spacing:2px; }
-#lives-display { color:#ff5555; font-size:clamp(11px,3.2vw,16px); text-shadow:0 0 8px #ff5555aa; }
-#level-display { color:#55ffaa; font-size:clamp(9px,2.8vw,13px); text-shadow:0 0 8px #55ffaaaa; letter-spacing:1px; }
+#score-display{color:#f0c040;font-size:clamp(10px,3vw,15px);font-weight:bold;text-shadow:0 0 8px #f0c040aa;letter-spacing:2px;}
+#lives-display{color:#ff5555;font-size:clamp(10px,3vw,15px);text-shadow:0 0 8px #ff5555aa;}
+#level-display{color:#55ffaa;font-size:clamp(9px,2.5vw,12px);text-shadow:0 0 8px #55ffaaaa;letter-spacing:1px;}
 
-/* canvas area — no flex:1, fixed around canvas */
-#canvas-wrap {
-  position:relative; width:100%; display:flex; justify-content:center;
-  flex-shrink:0;
-}
-canvas { display:block; }
+#canvas-wrap{position:relative;width:100%;display:flex;justify-content:center;flex-shrink:0;}
+canvas{display:block;}
 
-/* DIALOGUE — below canvas, above dpad */
-#dialogue-area {
-  width:100%; flex-shrink:0;
-  display:flex; align-items:flex-start; justify-content:center;
-  min-height:64px; padding:0 10px;
-  z-index:15;
+#dialogue-area{
+  width:100%;flex-shrink:0;
+  display:flex;align-items:flex-start;justify-content:center;
+  min-height:68px;padding:2px 8px 0;z-index:15;
 }
-#dialogue-wrap {
-  width:100%; max-width:400px;
-  opacity:0; transition:opacity 0.3s ease;
-  pointer-events:none;
+#dialogue-wrap{
+  width:100%;max-width:420px;
+  opacity:0;transition:opacity 0.2s ease;pointer-events:none;
 }
-#dialogue-wrap.show { opacity:1; }
-#dialogue-box {
-  background:rgba(10,5,20,0.95);
-  border-radius:10px; padding:8px 13px;
-  border:1.5px solid #6030a0;
-  box-shadow:0 0 16px #4010a088;
-  display:flex; gap:8px; align-items:flex-start;
+#dialogue-wrap.show{opacity:1;}
+#dialogue-box{
+  background:rgba(8,4,18,0.97);
+  border-radius:10px;padding:7px 12px;
+  border:1.5px solid #5020a0;
+  box-shadow:0 0 14px #3a0a8866;
+  display:flex;gap:8px;align-items:flex-start;
 }
-#dialogue-avatar {
-  font-size:clamp(20px,5vw,26px); flex-shrink:0; line-height:1;
-  padding-top:2px;
-}
-#dialogue-content { display:flex; flex-direction:column; gap:2px; }
-#dialogue-speaker {
-  font-size:clamp(8px,2.2vw,11px); font-weight:bold; letter-spacing:2px; text-transform:uppercase;
-}
-#dialogue-text {
-  font-size:clamp(12px,3.5vw,15px); line-height:1.4; color:#f0eaf8;
-  text-shadow:0 0 6px rgba(200,160,255,0.3);
-}
-.speaker-rex      { color:#66ffaa; text-shadow:0 0 8px #44cc88; }
-.speaker-book     { color:#ffcc44; text-shadow:0 0 8px #cc9922; }
-.speaker-narrator { color:#cc88ff; text-shadow:0 0 8px #8844cc; font-style:italic; }
+#dialogue-avatar{font-size:clamp(18px,4.5vw,24px);flex-shrink:0;line-height:1;padding-top:2px;}
+#dialogue-content{display:flex;flex-direction:column;gap:2px;}
+#dialogue-speaker{font-size:clamp(8px,2vw,10px);font-weight:bold;letter-spacing:2px;text-transform:uppercase;}
+#dialogue-text{font-size:clamp(11px,3.2vw,14px);line-height:1.4;color:#f0eaf8;text-shadow:0 0 6px rgba(200,160,255,0.3);}
+.word-highlight{color:#ffee55;text-shadow:0 0 10px #ffee55,0 0 20px #ffaa00;font-weight:bold;}
 
-/* dpad */
-#dpad { width:100%; display:flex; justify-content:center; flex-shrink:0; padding:6px 0 10px; z-index:30; }
-#dpad-inner { display:grid; grid-template-columns:50px 50px 50px; grid-template-rows:50px 50px 50px; gap:4px; }
-.dpad-btn {
-  background:rgba(240,192,64,0.12); border:2px solid rgba(240,192,64,0.32); border-radius:10px;
-  color:#f0c040cc; font-size:20px; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; -webkit-tap-highlight-color:transparent;
-}
-.dpad-btn:active { background:rgba(240,192,64,0.3); border-color:#f0c040; }
-.dpad-center { background:none; border:none; }
+.speaker-rex{color:#66ffaa;text-shadow:0 0 8px #44cc88;}
+.speaker-narrator{color:#cc88ff;text-shadow:0 0 8px #8844cc;font-style:italic;}
+.speaker-book_red{color:#ff6666;text-shadow:0 0 8px #cc2222;}
+.speaker-book_blue{color:#55bbff;text-shadow:0 0 8px #2266cc;}
+.speaker-book_green{color:#55ff88;text-shadow:0 0 8px #22cc55;}
+.speaker-book_yellow{color:#ffff55;text-shadow:0 0 8px #cccc22;}
 
-/* overlay */
-#overlay {
-  position:absolute; top:0; left:0; right:0; bottom:0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  background:rgba(5,2,8,0.93); z-index:20; gap:13px; padding:20px;
+#dpad{width:100%;display:flex;justify-content:center;flex-shrink:0;padding:3px 0 6px;z-index:30;}
+#dpad-inner{display:grid;grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px;gap:4px;}
+.dpad-btn{
+  background:rgba(240,192,64,0.10);border:2px solid rgba(240,192,64,0.28);border-radius:10px;
+  color:#f0c040cc;font-size:18px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
 }
-#overlay.hidden { display:none; }
-#overlay h1 { font-size:clamp(22px,7vw,40px); color:#f0c040; text-shadow:0 0 20px #f0c040,0 0 40px #f0a020; text-align:center; line-height:1.2; letter-spacing:3px; }
-.sub { color:#cc88ff; font-size:clamp(11px,3.2vw,15px); text-align:center; text-shadow:0 0 10px #cc88ff88; max-width:300px; }
-.score-big { color:#55ffcc; font-size:clamp(18px,5vw,26px); text-shadow:0 0 15px #55ffcc; font-weight:bold; }
-#btn-start {
-  background:linear-gradient(135deg,#f0c040,#e08020); color:#1a0a00; border:none; border-radius:8px;
-  padding:12px 32px; font-size:clamp(14px,4.5vw,20px); font-family:'Courier New',monospace;
-  font-weight:bold; cursor:pointer; letter-spacing:2px;
-  box-shadow:0 0 20px #f0a02088,0 4px 0 #a05010; transition:transform 0.1s,box-shadow 0.1s; text-transform:uppercase;
+.dpad-btn:active{background:rgba(240,192,64,0.28);border-color:#f0c040;}
+.dpad-center{background:none;border:none;}
+
+#overlay{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(4,2,8,0.94);z-index:20;gap:12px;padding:20px;
 }
-#btn-start:active { transform:translateY(3px); box-shadow:0 1px 0 #a05010; }
+#overlay.hidden{display:none;}
+#overlay h1{font-size:clamp(20px,6.5vw,38px);color:#f0c040;text-shadow:0 0 20px #f0c040,0 0 40px #f0a020;text-align:center;line-height:1.2;letter-spacing:3px;}
+.sub{color:#cc88ff;font-size:clamp(10px,3vw,14px);text-align:center;text-shadow:0 0 10px #cc88ff88;max-width:300px;}
+.score-big{color:#55ffcc;font-size:clamp(16px,4.5vw,24px);text-shadow:0 0 15px #55ffcc;font-weight:bold;}
+#btn-start{
+  background:linear-gradient(135deg,#f0c040,#e08020);color:#1a0a00;border:none;border-radius:8px;
+  padding:11px 28px;font-size:clamp(13px,4vw,18px);font-family:'Courier New',monospace;
+  font-weight:bold;cursor:pointer;letter-spacing:2px;
+  box-shadow:0 0 18px #f0a02088,0 3px 0 #a05010;transition:transform 0.1s,box-shadow 0.1s;text-transform:uppercase;
+}
+#btn-start:active{transform:translateY(3px);box-shadow:0 1px 0 #a05010;}
+.books-status{display:flex;gap:8px;font-size:clamp(14px,4vw,18px);letter-spacing:2px;}
 </style>
 </head>
 <body>
 
 <div id="header">
   <div id="score-display">SCORE: <span id="sc">0</span></div>
-  <div id="level-display">LVL <span id="lv">1</span></div>
+  <div id="level-display">LVL <span id="lv">1</span> &nbsp; BOOKS: <span id="bk">0</span>/4</div>
   <div id="lives-display">❤️ <span id="lf">3</span></div>
 </div>
 
@@ -106,14 +95,17 @@ canvas { display:block; }
   <div id="overlay">
     <h1>🦕 DINO-PAC</h1>
     <div class="sub">Haunted Library</div>
-    <div class="sub" style="font-size:clamp(9px,2.5vw,12px);color:#998899;">Eat all pellets · Avoid the haunted encyclopedias</div>
+    <div class="sub" style="font-size:clamp(8px,2.2vw,11px);color:#998899;line-height:1.5;">
+      Eat pellets to extend the booster · Collect the glowing orbs<br>
+      Chase scared books back to the pen · Capture all 4 to win
+    </div>
     <div id="final-score" class="score-big" style="display:none"></div>
+    <div id="books-caught" class="sub" style="display:none"></div>
     <button id="btn-start">CHOMP!</button>
-    <div class="sub" style="font-size:clamp(9px,2.2vw,11px);color:#665566;">Swipe or use D-Pad to move</div>
+    <div class="sub" style="font-size:clamp(8px,2vw,10px);color:#665566;">Swipe canvas or use D-Pad · Arrow keys also work</div>
   </div>
 </div>
 
-<!-- DIALOGUE BELOW CANVAS -->
 <div id="dialogue-area">
   <div id="dialogue-wrap">
     <div id="dialogue-box">
@@ -136,124 +128,258 @@ canvas { display:block; }
 
 <script>
 // ═══════════════════════════════════════════════════════
-//  BOOK IMAGES — three real DK covers, cycle across 4 ghosts
+//  SPEECH
 // ═══════════════════════════════════════════════════════
-const BOOK_URLS = [
-  'https://cdn.jsdelivr.net/gh/andrewveda/1@main/DK_logo.png'
-];
-  // ═══════════════════════════════════════════════════════
-//  DINO IMAGES (Loaded from your GitHub repo)
-// ═══════════════════════════════════════════════════════
-const DINO_IMG_OPEN = new Image();
-DINO_IMG_OPEN.crossOrigin = 'anonymous';
-DINO_IMG_OPEN.src = 'https://cdn.jsdelivr.net/gh/andrewveda/vox-persona@main/dino_open_jaws.png';
+const Speech=(() => {
+  const synth=window.speechSynthesis;
+  let voices=[],rexVoice=null,narratorVoice=null,bookVoice=null,ready=false;
 
-const DINO_IMG_CLOSED = new Image();
-DINO_IMG_CLOSED.crossOrigin = 'anonymous';
-DINO_IMG_CLOSED.src = 'https://cdn.jsdelivr.net/gh/andrewveda/vox-persona@main/dino_closed_mouth.png';
-const bookImgs = BOOK_URLS.map(url => {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.src = url;
-  return img;
-});
+  // British-biased voice profiles - increasingly unhinged pitch/rate per level
+  let insanityLevel=0; // increases with level
+  function profile(base){
+    const chaos=insanityLevel*0.08;
+    return{rate:base.rate+(Math.random()*chaos-chaos/2),pitch:base.pitch+(Math.random()*chaos*2-chaos),volume:1.0};
+  }
+  const baseProfiles={
+    rex:        {rate:0.70,pitch:0.50},
+    narrator:   {rate:0.94,pitch:1.02},
+    book_red:   {rate:1.08,pitch:0.82},
+    book_blue:  {rate:1.30,pitch:1.70},
+    book_green: {rate:0.88,pitch:0.98},
+    book_yellow:{rate:1.12,pitch:1.45},
+  };
+
+  function loadVoices(){
+    voices=synth.getVoices();
+    if(!voices.length)return;
+    // Prefer British English
+    const brit=voices.filter(v=>/en-GB/i.test(v.lang));
+    const en=voices.filter(v=>v.lang.startsWith('en'));
+    const pool=brit.length?brit:(en.length?en:voices);
+
+    rexVoice=pool.find(v=>/male|guy|david|daniel|tom|george|arthur|oliver/i.test(v.name))||pool[0];
+    narratorVoice=pool.find(v=>/female|kate|serena|moira|fiona|amy|emily/i.test(v.name))||pool.find(v=>v!==rexVoice)||pool[0];
+    bookVoice=pool.find(v=>v!==rexVoice&&v!==narratorVoice)||pool.find(v=>/junior|reed|sandy/i.test(v.name))||narratorVoice;
+    ready=true;
+  }
+  synth.onvoiceschanged=loadVoices;
+  loadVoices();setTimeout(loadVoices,500);
+
+  let currentUtter=null;
+
+  function speak(text,speaker,onEnd,onWord){
+    if(!synth){onEnd&&onEnd();return;}
+    synth.cancel();
+    const utter=new SpeechSynthesisUtterance(text);
+    const p=profile(baseProfiles[speaker]||baseProfiles.narrator);
+    utter.rate=Math.max(0.5,Math.min(2,p.rate));
+    utter.pitch=Math.max(0.1,Math.min(2,p.pitch));
+    utter.volume=p.volume;
+    if(speaker==='rex')utter.voice=rexVoice;
+    else if(speaker==='narrator')utter.voice=narratorVoice;
+    else utter.voice=bookVoice;
+    utter.onboundary=e=>{if(e.name==='word'&&onWord)onWord(e.charIndex,e.charLength,text.slice(e.charIndex,e.charIndex+e.charLength));};
+    utter.onend=()=>{currentUtter=null;onEnd&&onEnd();};
+    utter.onerror=()=>{currentUtter=null;onEnd&&onEnd();};
+    currentUtter=utter;
+    synth.speak(utter);
+  }
+
+  function cancel(){synth&&synth.cancel();currentUtter=null;}
+  function setInsanity(l){insanityLevel=l;}
+
+  return{speak,cancel,isReady:()=>ready,setInsanity};
+})();
 
 // ═══════════════════════════════════════════════════════
-//  DIALOGUE SYSTEM
+//  SFX
 // ═══════════════════════════════════════════════════════
-const DIALOGUES = {
-  start: [
-    { speaker:'narrator', avatar:'🎙', text:'The library is closed. He did not get the memo.' },
-    { speaker:'rex',      avatar:'🦕', text:'I am very hungry.' },
-    { speaker:'narrator', avatar:'🎙', text:'He is always hungry.' },
+const SFX=(() => {
+  let ctx=null;
+  function getCtx(){
+    if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();
+    if(ctx.state==='suspended')ctx.resume();
+    return ctx;
+  }
+  function tone(freq,type,dur,vol,attack=0.01,release=0.05){
+    const ac=getCtx(),osc=ac.createOscillator(),gain=ac.createGain();
+    osc.connect(gain);gain.connect(ac.destination);
+    osc.type=type;osc.frequency.setValueAtTime(freq,ac.currentTime);
+    gain.gain.setValueAtTime(0,ac.currentTime);
+    gain.gain.linearRampToValueAtTime(vol,ac.currentTime+attack);
+    gain.gain.linearRampToValueAtTime(0,ac.currentTime+dur+release);
+    osc.start();osc.stop(ac.currentTime+dur+release+0.05);
+  }
+  function sweep(f1,f2,type,dur,vol){
+    const ac=getCtx(),osc=ac.createOscillator(),gain=ac.createGain();
+    osc.connect(gain);gain.connect(ac.destination);
+    osc.type=type;
+    osc.frequency.setValueAtTime(f1,ac.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(f2,ac.currentTime+dur);
+    gain.gain.setValueAtTime(vol,ac.currentTime);
+    gain.gain.linearRampToValueAtTime(0,ac.currentTime+dur);
+    osc.start();osc.stop(ac.currentTime+dur+0.05);
+  }
+  function noise(dur,vol,hp=200){
+    const ac=getCtx(),buf=ac.createBuffer(1,ac.sampleRate*dur,ac.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    const src=ac.createBufferSource();src.buffer=buf;
+    const flt=ac.createBiquadFilter();flt.type='highpass';flt.frequency.value=hp;
+    const g=ac.createGain();g.gain.setValueAtTime(vol,ac.currentTime);g.gain.linearRampToValueAtTime(0,ac.currentTime+dur);
+    src.connect(flt);flt.connect(g);g.connect(ac.destination);
+    src.start();src.stop(ac.currentTime+dur+0.05);
+  }
+  return{
+    chomp(){tone(480,'square',0.04,0.15,0.005,0.02);setTimeout(()=>tone(360,'square',0.04,0.1,0.005,0.02),45);},
+    powerUp(){[0,80,160,240,320].forEach((d,i)=>setTimeout(()=>{const f=280*Math.pow(1.3,i);sweep(f,f*1.6,'sine',0.2,0.22);},d));setTimeout(()=>noise(0.3,0.07,800),200);},
+    capture(){[0,60,120,200].forEach((d,i)=>setTimeout(()=>tone(330*Math.pow(1.2,i),'sine',0.12,0.18,0.01,0.06),d));},
+    drag(){tone(440,'triangle',0.06,0.08,0.005,0.04);},
+    pellet(){tone(500,'sine',0.03,0.06,0.005,0.02);},
+    death(){sweep(440,60,'sawtooth',0.6,0.28);setTimeout(()=>sweep(300,50,'square',0.4,0.18),200);setTimeout(()=>noise(0.3,0.14,100),400);},
+    levelUp(){const notes=[262,330,392,523,659,784,1047];notes.forEach((f,i)=>setTimeout(()=>tone(f,'square',0.12,0.2,0.01,0.05),i*85));},
+    warning(){tone(880,'sine',0.06,0.07,0.005,0.04);},
+    start(){setTimeout(()=>tone(330,'triangle',0.1,0.14,0.01,0.05),0);setTimeout(()=>tone(392,'triangle',0.1,0.14,0.01,0.05),120);setTimeout(()=>tone(523,'triangle',0.15,0.18,0.01,0.1),240);}
+  };
+})();
+
+// ═══════════════════════════════════════════════════════
+//  DIALOGUE — NEAR-CONTINUOUS, INCREASINGLY UNHINGED
+// ═══════════════════════════════════════════════════════
+const DIALOGUES={
+  start:[
+    [{speaker:'narrator',avatar:'🎙',text:"The library closed three hours ago. The dinosaur was not informed."},{speaker:'rex',avatar:'🦕',text:"I can read. I choose not to."},{speaker:'narrator',avatar:'🎙',text:"He cannot read."}],
+    [{speaker:'book_red',avatar:'📕',text:"There is a dinosaur in the library."},{speaker:'book_blue',avatar:'📘',text:"Is it checked in?"},{speaker:'book_red',avatar:'📕',text:"I do not think that is the relevant question."}],
+    [{speaker:'narrator',avatar:'🎙',text:"The dinosaur enters the reference section."},{speaker:'rex',avatar:'🦕',text:"I am here for cultural enrichment."},{speaker:'book_green',avatar:'📗',text:"You have eaten three encyclopaedias."},{speaker:'rex',avatar:'🦕',text:"I am culturally enriched."}],
   ],
-  power: [
-    { speaker:'rex',      avatar:'🦕', text:'Something tastes purple.' },
-    { speaker:'rex',      avatar:'🦕', text:'I feel amazing. Why do I feel amazing?' },
-    { speaker:'narrator', avatar:'🎙', text:'He has eaten something he should not have.' },
-    { speaker:'narrator', avatar:'🎙', text:'The books are now afraid. Good.' },
+  power:[
+    [{speaker:'narrator',avatar:'🎙',text:"A strange pellet. It glows. Probably fine."},{speaker:'rex',avatar:'🦕',text:"Tastes like ambition."},{speaker:'book_yellow',avatar:'📒',text:"We should run."},{speaker:'book_red',avatar:'📕',text:"I am already running. I have been running for some time."}],
+    [{speaker:'book_blue',avatar:'📘',text:"The booster is active. Tactically speaking, we are doomed."},{speaker:'book_green',avatar:'📗',text:"The statistics suggest a seventy-three percent chance of capture."},{speaker:'book_blue',avatar:'📘',text:"That is horrifying."},{speaker:'book_green',avatar:'📗',text:"I know. I wrote the statistics."}],
+    [{speaker:'narrator',avatar:'🎙',text:"The books flee. Their dignity flees somewhat faster."},{speaker:'rex',avatar:'🦕',text:"Come back. I am friendly."},{speaker:'book_yellow',avatar:'📒',text:"That is objectively untrue."}],
   ],
-  eatBook: [
-    { speaker:'book',     avatar:'📚', text:'I have a chapter on YOU.' },
-    { speaker:'book',     avatar:'📚', text:'My spine! MY BEAUTIFUL SPINE.' },
-    { speaker:'book',     avatar:'📚', text:'This is NOT in my index.' },
-    { speaker:'book',     avatar:'📚', text:'I am a LIBRARY CLASSIC.' },
-    { speaker:'rex',      avatar:'🦕', text:'That one smelled like maths.' },
-    { speaker:'rex',      avatar:'🦕', text:'More food please.' },
-    { speaker:'narrator', avatar:'🎙', text:'The book did not survive.' },
-    { speaker:'narrator', avatar:'🎙', text:'Nobody learned anything today.' },
+  drag:[
+    [{speaker:'book_red',avatar:'📕',text:"Put me down this instant."},{speaker:'rex',avatar:'🦕',text:"No."},{speaker:'book_red',avatar:'📕',text:"I am a first edition."},{speaker:'rex',avatar:'🦕',text:"Congratulations."}],
+    [{speaker:'book_blue',avatar:'📘',text:"I want you to know I am very disappointed."},{speaker:'rex',avatar:'🦕',text:"You will get over it."},{speaker:'book_blue',avatar:'📘',text:"I shall write a strongly-worded letter."},{speaker:'rex',avatar:'🦕',text:"To whom."},{speaker:'book_blue',avatar:'📘',text:"I had not considered that."}],
+    [{speaker:'book_green',avatar:'📗',text:"This is highly irregular."},{speaker:'rex',avatar:'🦕',text:"Yes."},{speaker:'book_green',avatar:'📗',text:"Is that all you have to say?"},{speaker:'rex',avatar:'🦕',text:"Yes."}],
+    [{speaker:'book_yellow',avatar:'📒',text:"I have feelings, you know."},{speaker:'rex',avatar:'🦕',text:"Do you."},{speaker:'book_yellow',avatar:'📒',text:"Well. I have footnotes about feelings."},{speaker:'rex',avatar:'🦕',text:"Close enough."}],
   ],
-  death: [
-    { speaker:'book',     avatar:'📚', text:'Do you know how long it took to write me?' },
-    { speaker:'narrator', avatar:'🎙', text:'Something is very wrong here.' },
-    { speaker:'rex',      avatar:'🦕', text:'That was not food.' },
-    { speaker:'narrator', avatar:'🎙', text:'He was not fast enough. Again.' },
-    { speaker:'book',     avatar:'📚', text:'Knowledge wins this time.' },
+  capture:[
+    [{speaker:'narrator',avatar:'🎙',text:"Another one captured. The library grows quieter."},{speaker:'book_red',avatar:'📕',text:"Tell my bibliography I loved it."}],
+    [{speaker:'narrator',avatar:'🎙',text:"The pen grows crowded."},{speaker:'book_blue',avatar:'📘',text:"I cannot believe this is happening."},{speaker:'book_red',avatar:'📕',text:"Believe it."}],
+    [{speaker:'rex',avatar:'🦕',text:"Got one."},{speaker:'narrator',avatar:'🎙',text:"He sounds pleased. He is always pleased."},{speaker:'rex',avatar:'🦕',text:"I am very pleased."}],
+    [{speaker:'book_green',avatar:'📗',text:"Statistically speaking, this was inevitable."},{speaker:'narrator',avatar:'🎙',text:"The book takes some comfort in this. Not much."}],
   ],
-  levelUp: [
-    { speaker:'narrator', avatar:'🎙', text:'The library is no longer safe.' },
-    { speaker:'rex',      avatar:'🦕', text:'I did not go to school. I did not need to.' },
-    { speaker:'narrator', avatar:'🎙', text:'He is still hungry.' },
-    { speaker:'rex',      avatar:'🦕', text:'Why is the book running?' },
+  death:[
+    [{speaker:'book_red',avatar:'📕',text:"Knowledge wins this round."},{speaker:'narrator',avatar:'🎙',text:"The dinosaur is briefly philosophical about this."},{speaker:'rex',avatar:'🦕',text:"I have learned nothing."}],
+    [{speaker:'book_green',avatar:'📗',text:"You really ought to read us rather than chase us."},{speaker:'rex',avatar:'🦕',text:"Where is the fun in that."},{speaker:'book_green',avatar:'📗',text:"Where is the fun in being eaten."},{speaker:'rex',avatar:'🦕',text:"Fair."}],
+    [{speaker:'narrator',avatar:'🎙',text:"He walks into the corner of a bookshelf. This is his third time today."},{speaker:'rex',avatar:'🦕',text:"I meant to do that."}],
   ],
-  idle: [
-    { speaker:'rex',      avatar:'🦕', text:'I am very hungry.' },
-    { speaker:'narrator', avatar:'🎙', text:'He has been here before.' },
-    { speaker:'book',     avatar:'📚', text:'I contain 600 pages. Of warnings.' },
-    { speaker:'narrator', avatar:'🎙', text:'The walls smell like old paper and regret.' },
-    { speaker:'rex',      avatar:'🦕', text:'I do not understand libraries.' },
-    { speaker:'book',     avatar:'📚', text:'Please. I have a bibliography.' },
-    { speaker:'narrator', avatar:'🎙', text:'He is not reading the books. He is eating them.' },
-    { speaker:'rex',      avatar:'🦕', text:'Is this a restaurant?' },
-    { speaker:'book',     avatar:'📚', text:'I was a bestseller.' },
-    { speaker:'narrator', avatar:'🎙', text:'The Dewey Decimal System cannot help you now.' },
-    { speaker:'rex',      avatar:'🦕', text:'Something is following me. Good.' },
-    { speaker:'book',     avatar:'📚', text:'I have feelings. And footnotes.' },
+  levelUp:[
+    [{speaker:'narrator',avatar:'🎙',text:"All four books secured. The library holds its breath."},{speaker:'rex',avatar:'🦕',text:"Onwards."},{speaker:'narrator',avatar:'🎙',text:"The books in the next section are already aware. They are not happy."}],
+    [{speaker:'book_blue',avatar:'📘',text:"He got all of us."},{speaker:'book_green',avatar:'📗',text:"Yes."},{speaker:'book_blue',avatar:'📘',text:"Absolutely all of us."},{speaker:'book_green',avatar:'📗',text:"Yes."},{speaker:'book_blue',avatar:'📘',text:"Right. That's not great."}],
+  ],
+  // INCREASINGLY UNHINGED idle — triggered per level
+  idle_level1:[
+    [{speaker:'book_blue',avatar:'📘',text:"Is he gone?"},{speaker:'book_red',avatar:'📕',text:"No."},{speaker:'book_blue',avatar:'📘',text:"Are you certain?"},{speaker:'book_red',avatar:'📕',text:"He is directly behind you."},{speaker:'rex',avatar:'🦕',text:"Hello."},{speaker:'book_blue',avatar:'📘',text:"Oh no."}],
+    [{speaker:'book_green',avatar:'📗',text:"I have a bibliography."},{speaker:'rex',avatar:'🦕',text:"Lovely."},{speaker:'book_green',avatar:'📗',text:"That was not a compliment."},{speaker:'rex',avatar:'🦕',text:"I do not know what a bibliography is."}],
+    [{speaker:'narrator',avatar:'🎙',text:"The dinosaur wanders the stacks."},{speaker:'rex',avatar:'🦕',text:"I am looking for the fiction section."},{speaker:'book_yellow',avatar:'📒',text:"You ate the fiction section."},{speaker:'rex',avatar:'🦕',text:"Was it good?"},{speaker:'book_yellow',avatar:'📒',text:"It was Dickens."},{speaker:'rex',avatar:'🦕',text:"Then no."}],
+    [{speaker:'book_red',avatar:'📕',text:"Approach me and face the consequences."},{speaker:'rex',avatar:'🦕',text:"Are you spicy."},{speaker:'book_red',avatar:'📕',text:"I am historical fiction!"},{speaker:'rex',avatar:'🦕',text:"Then probably not."}],
+    [{speaker:'narrator',avatar:'🎙',text:"A quiet moment in the library."},{speaker:'rex',avatar:'🦕',text:"Where is the canteen."},{speaker:'narrator',avatar:'🎙',text:"There is no canteen."},{speaker:'rex',avatar:'🦕',text:"There should be."},{speaker:'narrator',avatar:'🎙',text:"Yes. There really should."}],
+  ],
+  idle_level2:[
+    [{speaker:'book_blue',avatar:'📘',text:"I have a plan."},{speaker:'book_red',avatar:'📕',text:"Your last plan involved running into a wall."},{speaker:'book_blue',avatar:'📘',text:"This plan is different."},{speaker:'book_red',avatar:'📕',text:"Is it?"},{speaker:'book_blue',avatar:'📘',text:"It involves running into a different wall."}],
+    [{speaker:'rex',avatar:'🦕',text:"I am beginning to enjoy this library."},{speaker:'narrator',avatar:'🎙',text:"The library does not share the sentiment."},{speaker:'book_green',avatar:'📗',text:"He has eaten seventeen volumes of the encyclopaedia."},{speaker:'rex',avatar:'🦕',text:"I am very knowledgeable now."},{speaker:'book_green',avatar:'📗',text:"You cannot spell encyclopaedia."},{speaker:'rex',avatar:'🦕',text:"I know what one tastes like."}],
+    [{speaker:'book_yellow',avatar:'📒',text:"I have been in this library since nineteen forty-two."},{speaker:'rex',avatar:'🦕',text:"That is a long time."},{speaker:'book_yellow',avatar:'📒',text:"Yes. I thought perhaps I would retire quietly."},{speaker:'rex',avatar:'🦕',text:"And instead?"},{speaker:'book_yellow',avatar:'📒',text:"And instead there is a dinosaur."}],
+    [{speaker:'narrator',avatar:'🎙',text:"The dinosaur pauses near the periodicals."},{speaker:'rex',avatar:'🦕',text:"Do these count."},{speaker:'narrator',avatar:'🎙',text:"Do what count."},{speaker:'rex',avatar:'🦕',text:"As books."},{speaker:'narrator',avatar:'🎙',text:"They are magazines."},{speaker:'rex',avatar:'🦕',text:"Then no."}],
+    [{speaker:'book_red',avatar:'📕',text:"My author won a Booker Prize."},{speaker:'rex',avatar:'🦕',text:"Was it tasty."},{speaker:'book_red',avatar:'📕',text:"It was a literary award."},{speaker:'rex',avatar:'🦕',text:"That was not what I asked."}],
+  ],
+  idle_level3:[
+    [{speaker:'book_blue',avatar:'📘',text:"I have begun to question the nature of my existence."},{speaker:'book_green',avatar:'📗',text:"It is a library. You exist to be read."},{speaker:'book_blue',avatar:'📘',text:"And yet I have never been read."},{speaker:'book_green',avatar:'📗',text:"That is certainly true."},{speaker:'book_blue',avatar:'📘',text:"There is a dinosaur chasing me."},{speaker:'book_green',avatar:'📗',text:"Also true."},{speaker:'book_blue',avatar:'📘',text:"This was not in the blurb."}],
+    [{speaker:'narrator',avatar:'🎙',text:"Deep in the library."},{speaker:'rex',avatar:'🦕',text:"I hear the books whispering."},{speaker:'narrator',avatar:'🎙',text:"They are not whispering. They are screaming quietly."},{speaker:'rex',avatar:'🦕',text:"Very polite."},{speaker:'narrator',avatar:'🎙',text:"They are British books."}],
+    [{speaker:'book_yellow',avatar:'📒',text:"I have made peace with my fate."},{speaker:'book_red',avatar:'📕',text:"Have you really."},{speaker:'book_yellow',avatar:'📒',text:"No. I was lying. Help me."},{speaker:'book_red',avatar:'📕',text:"We are all beyond help."}],
+    [{speaker:'book_green',avatar:'📗',text:"I contain the complete works of several Nobel laureates."},{speaker:'rex',avatar:'🦕',text:"Congratulations."},{speaker:'book_green',avatar:'📗',text:"I was rather hoping that would give you pause."},{speaker:'rex',avatar:'🦕',text:"I am pausing."},{speaker:'book_green',avatar:'📗',text:"Oh."},{speaker:'rex',avatar:'🦕',text:"I have finished pausing."}],
+  ],
+  idle_level4plus:[
+    [{speaker:'book_blue',avatar:'📘',text:"I am no longer frightened."},{speaker:'book_red',avatar:'📕',text:"Are you certain."},{speaker:'book_blue',avatar:'📘',text:"I have gone beyond frightened into something new."},{speaker:'book_red',avatar:'📕',text:"What is it called."},{speaker:'book_blue',avatar:'📘',text:"I do not think it has a name yet."},{speaker:'narrator',avatar:'🎙',text:"It has a name. It is called Tuesday."}],
+    [{speaker:'rex',avatar:'🦕',text:"The library speaks to me."},{speaker:'narrator',avatar:'🎙',text:"It does not."},{speaker:'rex',avatar:'🦕',text:"It says there are more pellets to the left."},{speaker:'narrator',avatar:'🎙',text:"That is simply true. That is not supernatural."},{speaker:'rex',avatar:'🦕',text:"The library is helpful."}],
+    [{speaker:'book_green',avatar:'📗',text:"Chapter four concerns itself with the futility of existence."},{speaker:'rex',avatar:'🦕',text:"That sounds bleak."},{speaker:'book_green',avatar:'📗',text:"Chapter five is worse."},{speaker:'rex',avatar:'🦕',text:"What is chapter five."},{speaker:'book_green',avatar:'📗',text:"Running from a dinosaur."}],
+    [{speaker:'book_yellow',avatar:'📒',text:"I contain seventeen recipes."},{speaker:'rex',avatar:'🦕',text:"Now I am very interested."},{speaker:'book_yellow',avatar:'📒',text:"They are recipes for gazpacho."},{speaker:'rex',avatar:'🦕',text:"Less interested."},{speaker:'book_yellow',avatar:'📒',text:"One is for a lovely beef wellington."},{speaker:'rex',avatar:'🦕',text:"I am back."}],
+    [{speaker:'narrator',avatar:'🎙',text:"It is unclear how long the dinosaur has been in this library."},{speaker:'rex',avatar:'🦕',text:"I arrived on a Tuesday."},{speaker:'narrator',avatar:'🎙',text:"It is Thursday."},{speaker:'rex',avatar:'🦕',text:"I have been thorough."}],
+  ],
+  // Running gag across levels
+  gag_lost_page:[
+    [{speaker:'book_green',avatar:'📗',text:"I appear to be missing page forty-seven."},{speaker:'rex',avatar:'🦕',text:"That is unfortunate."},{speaker:'book_green',avatar:'📗',text:"Do you know where it is."},{speaker:'rex',avatar:'🦕',text:"No."}],
+    [{speaker:'book_green',avatar:'📗',text:"I have thought more about page forty-seven."},{speaker:'rex',avatar:'🦕',text:"And?"},{speaker:'book_green',avatar:'📗',text:"It was the most important page."},{speaker:'rex',avatar:'🦕',text:"What was on it."},{speaker:'book_green',avatar:'📗',text:"I cannot remember. It was page forty-seven."}],
+    [{speaker:'book_green',avatar:'📗',text:"I found page forty-seven."},{speaker:'rex',avatar:'🦕',text:"Wonderful."},{speaker:'book_green',avatar:'📗',text:"It was inside you."},{speaker:'rex',avatar:'🦕',text:"I do not know how to feel about that."},{speaker:'book_green',avatar:'📗',text:"I know exactly how to feel. I feel unwell."}],
   ],
 };
-const SPEAKER_CLASS = { rex:'speaker-rex', book:'speaker-book', narrator:'speaker-narrator' };
-const SPEAKER_LABEL = { rex:'🦕 REX', book:'📚 ENCYCLOPEDIA', narrator:'🎙 NARRATOR' };
 
-let dlgTimeout=null, dlgActive=false, dlgCooldown=0;
-let idxEatBook=0, idxDeath=0, idxLevelUp=0, idxPower=0, idxIdle=0;
+const SPEAKER_CLASS={rex:'speaker-rex',narrator:'speaker-narrator',book_red:'speaker-book_red',book_blue:'speaker-book_blue',book_green:'speaker-book_green',book_yellow:'speaker-book_yellow'};
+const SPEAKER_LABEL={rex:'🦕 REX',narrator:'🎙 NARRATOR',book_red:'📕 RED BOOK',book_blue:'📘 BLUE BOOK',book_green:'📗 GREEN BOOK',book_yellow:'📒 YELLOW BOOK'};
 
-function queueDialogue(type, delay=0){
-  const pool=DIALOGUES[type]; if(!pool) return;
-  let line;
-  if(type==='eatBook'){ line=pool[idxEatBook++%pool.length]; }
-  else if(type==='death'){ line=pool[idxDeath++%pool.length]; }
-  else if(type==='levelUp'){ line=pool[idxLevelUp++%pool.length]; }
-  else if(type==='power'){ line=pool[idxPower++%pool.length]; }
-  else if(type==='idle'){ line=pool[idxIdle++%pool.length]; }
-  else { line=pool[Math.floor(Math.random()*pool.length)]; }
-  showDialogue(line, delay);
+let speechQueue=[],isSpeaking=false,dlgCooldown=0,currentLineTimeout=null,gagIdx=0;
+let lastIdlePool=null;
+
+function getIdlePool(lv){
+  if(lv>=4)return DIALOGUES.idle_level4plus;
+  if(lv>=3)return DIALOGUES.idle_level3;
+  if(lv>=2)return DIALOGUES.idle_level2;
+  return DIALOGUES.idle_level1;
 }
 
-function showDialogue(line, delay=0){
-  if(dlgTimeout) clearTimeout(dlgTimeout);
-  dlgTimeout=setTimeout(()=>{
-    document.getElementById('dialogue-avatar').textContent=line.avatar||'🎙';
-    const spk=document.getElementById('dialogue-speaker');
-    spk.textContent=SPEAKER_LABEL[line.speaker]||line.speaker;
-    spk.className=SPEAKER_CLASS[line.speaker]||'';
-    document.getElementById('dialogue-text').textContent=line.text;
-    document.getElementById('dialogue-wrap').classList.add('show');
-    dlgActive=true; dlgCooldown=300;
-    const ms=Math.max(2000, line.text.split(' ').length*420);
-    dlgTimeout=setTimeout(hideDialogue, ms);
-  }, delay);
+function queueDialogue(type,immediate=false){
+  let scene=[];
+  if(type==='idle'){
+    // 25% chance running gag
+    if(Math.random()<0.25&&gagIdx<DIALOGUES.gag_lost_page.length){
+      scene=DIALOGUES.gag_lost_page[gagIdx++];
+    } else {
+      const pool=getIdlePool(level||1);
+      scene=pool[Math.floor(Math.random()*pool.length)];
+    }
+  } else {
+    const pool=DIALOGUES[type];
+    if(!pool)return;
+    scene=pool[Math.floor(Math.random()*pool.length)];
+  }
+  if(immediate){speechQueue=[...scene];startNextLine();}
+  else{speechQueue.push(...scene);if(!isSpeaking)startNextLine();}
 }
-function hideDialogue(){
-  document.getElementById('dialogue-wrap').classList.remove('show');
-  dlgActive=false;
+
+function startNextLine(){
+  if(!speechQueue.length){isSpeaking=false;return;}
+  isSpeaking=true;
+  const line=speechQueue.shift();
+  renderDialogue(line);
+  Speech.speak(line.text,line.speaker,
+    ()=>{currentLineTimeout=setTimeout(()=>{if(speechQueue.length)startNextLine();else{isSpeaking=false;scheduleHide();}},300);},
+    (ci,cl)=>highlightWord(line.text,ci,cl)
+  );
 }
+
+function renderDialogue(line){
+  document.getElementById('dialogue-avatar').textContent=line.avatar||'🎙';
+  const spk=document.getElementById('dialogue-speaker');
+  spk.textContent=SPEAKER_LABEL[line.speaker]||line.speaker;
+  spk.className=SPEAKER_CLASS[line.speaker]||'';
+  setDlgText(line.text,-1,-1);
+  document.getElementById('dialogue-wrap').classList.add('show');
+}
+function setDlgText(text,ci,cl){
+  const el=document.getElementById('dialogue-text');
+  if(ci<0||cl<=0){el.textContent=text;return;}
+  el.innerHTML=escH(text.slice(0,ci))+'<span class="word-highlight">'+escH(text.slice(ci,ci+cl))+'</span>'+escH(text.slice(ci+cl));
+}
+function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function highlightWord(text,ci,cl){setDlgText(text,ci,cl);}
+let hideTimer=null;
+function scheduleHide(){if(hideTimer)clearTimeout(hideTimer);hideTimer=setTimeout(()=>document.getElementById('dialogue-wrap').classList.remove('show'),2000);}
+function hideDialogue(){Speech.cancel();speechQueue=[];isSpeaking=false;if(currentLineTimeout)clearTimeout(currentLineTimeout);if(hideTimer)clearTimeout(hideTimer);document.getElementById('dialogue-wrap').classList.remove('show');}
 
 // ═══════════════════════════════════════════════════════
-//  CONSTANTS & MAZE
+//  MAZE & CONSTANTS
 // ═══════════════════════════════════════════════════════
-const TILE=18, COLS=19, ROWS=21;
-const CW=TILE*COLS, CH=TILE*ROWS;
-
+const TILE=18,COLS=19,ROWS=21,CW=TILE*COLS,CH=TILE*ROWS;
+// 0=empty, 1=wall, 2=pellet, 3=power-pellet, 4=pen
 const MAZE_TPL=[
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   [1,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,1],
@@ -278,22 +404,26 @@ const MAZE_TPL=[
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 ];
 
+// Centre pen tile positions (used to check if book is inside)
+const PEN_CENTRE={x:9,y:9};
+const PEN_RECT={x1:7,y1:8,x2:11,y2:11};
+
+function inPen(x,y){return x>=PEN_RECT.x1&&x<=PEN_RECT.x2&&y>=PEN_RECT.y1&&y<=PEN_RECT.y2;}
+
 // ═══════════════════════════════════════════════════════
-//  CANVAS SETUP
+//  CANVAS
 // ═══════════════════════════════════════════════════════
 const canvas=document.getElementById('gc');
 const ctx=canvas.getContext('2d');
 let scale=1;
 
 function resize(){
-  // Layout: header + canvas + dialogue + dpad
-  // Dialogue ~64px, dpad ~170px, header ~34px
   const totalH=window.innerHeight;
-  const availH=totalH - 34 - 64 - 170;
+  const availH=totalH-34-68-160;
   const availW=window.innerWidth;
-  scale=Math.min(availW/CW, availH/CH, 2.2);
-  scale=Math.max(scale,0.7);
-  canvas.width=CW; canvas.height=CH;
+  scale=Math.min(availW/CW,availH/CH,2.2);
+  scale=Math.max(scale,0.65);
+  canvas.width=CW;canvas.height=CH;
   canvas.style.width=(CW*scale)+'px';
   canvas.style.height=(CH*scale)+'px';
 }
@@ -304,10 +434,19 @@ window.addEventListener('resize',resize);
 //  GAME STATE
 // ═══════════════════════════════════════════════════════
 let maze,pellets,score,lives,level,gameState;
-let dX,dY,dDir,dNext,jawAng,jawOpen;
+let dX,dY,dDir,dNext,jawOpen;
 let books=[];
-let pwrTimer=0,animF=0,lastT=0;
-let startFired=false, pelletsEaten=0;
+let pwrTimer=0,pwrMax=300,animF=0,lastT=0;
+let warningPlayed=false;
+let booksCaptured=0;
+let dragging=null; // the book being dragged, or null
+let dragMoveTimer=0; // small sound timer
+
+const BOOK_COLORS=['#ff4040','#44aaff','#ffbb33','#55dd66'];
+const BOOK_LABELS=['RED','BLUE','YELLOW','GREEN'];
+const BOOK_SPEAKERS=['book_red','book_blue','book_yellow','book_green'];
+const SCATTER_TARGETS=[[1,1],[17,1],[1,19],[17,19]];
+
 const DIRS={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
 const OPP={up:'down',down:'up',left:'right',right:'left'};
 
@@ -316,41 +455,47 @@ const OPP={up:'down',down:'up',left:'right',right:'left'};
 // ═══════════════════════════════════════════════════════
 function initGame(){
   score=0;lives=3;level=1;gameState='playing';
-  jawAng=0;jawOpen=true;pwrTimer=0;
-  startFired=false;pelletsEaten=0;dlgCooldown=0;hideDialogue();
+  jawOpen=true;pwrTimer=0;dlgCooldown=0;warningPlayed=false;
+  booksCaptured=0;dragging=null;gagIdx=0;
+  Speech.setInsanity(0);
+  hideDialogue();
   initLevel();updateHUD();
 }
 
 function initLevel(){
   maze=MAZE_TPL.map(r=>[...r]);
   pellets=0;
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
-    if(maze[r][c]===2||maze[r][c]===3) pellets++;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(maze[r][c]===2||maze[r][c]===3)pellets++;
   dX=9;dY=16;dDir='left';dNext='left';
- const BC=[
-  '#ff4040', // red
-  '#44aaff', // blue
-  '#ffbb33', // gold
-  '#66dd66'  // green
-];  books=BC.map((col,i)=>({
-    x:9,y:9,dir:'up',color:col,
-    mode:'scatter',modeT:200+i*60,scared:false,
-   imgIdx:0,
-     scatterTarget:[[1,1],[17,1],[1,19],[17,19]][i],
-    label:['TRIASSIC','JURASSIC','CRETAC.','EXTINCT.'][i],
+  dragging=null;
+  // Books release from pen one by one; timer in frames. Each level shaves 20 frames off.
+  const baseRelease=[180,300,420,540];
+  books=BOOK_COLORS.map((col,i)=>({
+    x:9,y:9,
+    dir:'up',
+    color:col,
+    mode:'scatter',modeT:200+i*60,
+    scared:false,
+    captured:false,
+    released:false,
+    releaseTimer:Math.max(60,baseRelease[i]-(level-1)*20),
+    imgIdx:0,
+    scatterTarget:SCATTER_TARGETS[i],
+    label:BOOK_LABELS[i],
+    speaker:BOOK_SPEAKERS[i],
+    id:i,
   }));
+  booksCaptured=0;
+  pwrMax=Math.max(180,300-level*20);
 }
 
-// ═══════════════════════════════════════════════════════
-//  HELPERS
-// ═══════════════════════════════════════════════════════
 function passable(c,r){
-  if(c<0||c>=COLS||r<0||r>=ROWS) return true;
+  if(c<0||c>=COLS||r<0||r>=ROWS)return true;
   return maze[r][c]!==1;
 }
 function wrap(c,r){
-  if(c<0)c=COLS-1; if(c>=COLS)c=0;
-  if(r<0)r=ROWS-1; if(r>=ROWS)r=0;
+  if(c<0)c=COLS-1;if(c>=COLS)c=0;
+  if(r<0)r=ROWS-1;if(r>=ROWS)r=0;
   return[c,r];
 }
 
@@ -358,94 +503,203 @@ function wrap(c,r){
 //  UPDATE
 // ═══════════════════════════════════════════════════════
 let dMoveT=0,bMoveT=0;
-const DSPD=8;
-function bSpd(){ return Math.max(11-level,6); }
+const DSPD_NORMAL=8,DSPD_DRAG=11; // slower while dragging
+function bSpd(){return Math.max(10-level,5);}
 
 function update(dt){
-  if(gameState!=='playing') return;
+  if(gameState!=='playing')return;
   animF++;
 
-  if(dlgCooldown>0) dlgCooldown--;
-  if(!dlgActive&&dlgCooldown===0&&animF>180&&Math.random()<0.002){
-    queueDialogue('idle'); dlgCooldown=380;
+  if(dlgCooldown>0)dlgCooldown--;
+
+  // Near-continuous dialogue: very short cooldown, high probability
+  if(!isSpeaking&&dlgCooldown===0&&animF>120&&Math.random()<0.004){
+    queueDialogue('idle');
+    dlgCooldown=Math.floor(180+Math.random()*120); // ~3-5 sec between idle scenes
   }
 
-  jawAng+=jawOpen?5:-5;
-  if(jawAng>=38)jawOpen=false;
-  if(jawAng<=0) jawOpen=true;
+  // Jaw animation
+  if(animF%4===0)jawOpen=!jawOpen;
 
+  // Warning if non-scared book is close
+  const minDist=Math.min(...books.filter(b=>!b.scared&&!b.captured&&b.released).map(b=>Math.abs(b.x-dX)+Math.abs(b.y-dY)).concat([Infinity]));
+  if(minDist<=2&&!warningPlayed){SFX.warning();warningPlayed=true;}
+  if(minDist>3)warningPlayed=false;
+
+  // Booster ticks down
+  if(pwrTimer>0){
+    pwrTimer--;
+    if(pwrTimer===0){
+      books.forEach(b=>{if(!b.captured&&b.released)b.scared=false;});
+      // If dragging, drop the book
+      if(dragging){
+        dragging.scared=false;
+        dragging=null;
+        // brief dialogue
+        queueDialogue('death',true);
+        dlgCooldown=200;
+      }
+    }
+  }
+
+  // Dino movement
+  const dspd=dragging?DSPD_DRAG:DSPD_NORMAL;
   dMoveT++;
-  if(dMoveT>=DSPD){
+  if(dMoveT>=dspd){
     dMoveT=0;
     const[dx,dy]=DIRS[dNext];
     let[nx,ny]=wrap(dX+dx,dY+dy);
+    let moved=false;
     if(passable(nx,ny)&&maze[ny][nx]!==4){
-      dDir=dNext;dX=nx;dY=ny;
+      dDir=dNext;dX=nx;dY=ny;moved=true;
     } else {
       const[dx2,dy2]=DIRS[dDir];
       let[nx2,ny2]=wrap(dX+dx2,dY+dy2);
-      if(passable(nx2,ny2)&&maze[ny2][nx2]!==4){dX=nx2;dY=ny2;}
+      if(passable(nx2,ny2)&&maze[ny2][nx2]!==4){dX=nx2;dY=ny2;moved=true;}
     }
+
+    // Pellet eating
     const t=maze[dY][dX];
     if(t===2){
-      maze[dY][dX]=0;score+=10;pellets--;pelletsEaten++;updateHUD();
-      if(!startFired&&pelletsEaten===1){
-        startFired=true;
-        showDialogue(DIALOGUES.start[Math.floor(Math.random()*DIALOGUES.start.length)],200);
-        dlgCooldown=300;
-      }
+      maze[dY][dX]=0;score+=10;pellets--;updateHUD();
+      SFX.chomp();
+      // Pellets extend booster timer
+      if(pwrTimer>0){pwrTimer=Math.min(pwrTimer+40,pwrMax);books.forEach(b=>{if(!b.captured&&b.released)b.scared=true;});}
     }
     if(t===3){
-      maze[dY][dX]=0;score+=50;pellets--;pelletsEaten++;
-      pwrTimer=300;books.forEach(b=>b.scared=true);updateHUD();
-      queueDialogue('power');dlgCooldown=240;
+      maze[dY][dX]=0;score+=50;pellets--;
+      pwrTimer=pwrMax;
+      books.forEach(b=>{if(!b.captured&&b.released)b.scared=true;});
+      updateHUD();
+      SFX.powerUp();
+      speechQueue=[];
+      queueDialogue('power',true);
+      dlgCooldown=200;
+    }
+
+    // If dragging, move book with dino
+    if(dragging&&moved){
+      dragging.x=dX;dragging.y=dY;
+      dragMoveTimer++;
+      if(dragMoveTimer%6===0)SFX.drag();
+
+      // Capture when dino reaches the pen entrance tile (9,7) — one tile above pen opening
+      // The dino cannot enter pen tiles (type 4), so we check the entrance tile instead
+      if(dX===9&&dY===7){
+        captureBook(dragging);
+      }
     }
   }
 
-  if(pwrTimer>0){pwrTimer--;if(pwrTimer===0)books.forEach(b=>b.scared=false);}
-
-  bMoveT++;
-  if(bMoveT>=bSpd()){bMoveT=0;books.forEach(moveBook);}
-
+  // Release timers — count down and eject book from pen when ready
   books.forEach(b=>{
+    if(b.captured||b.released)return;
+    b.releaseTimer--;
+    if(b.releaseTimer<=0){
+      b.released=true;
+      // Move book to pen exit tile (just above pen opening)
+      b.x=9;b.y=7;b.dir='up';
+    }
+  });
+
+  // Books move
+  bMoveT++;
+  if(bMoveT>=bSpd()){
+    bMoveT=0;
+    books.forEach(b=>{if(!b.captured&&b.released&&b!==dragging)moveBook(b);});
+  }
+
+  // Collision: dino touches a book
+  books.forEach(b=>{
+    if(b.captured||b===dragging||!b.released)return;
     if(Math.abs(b.x-dX)<1&&Math.abs(b.y-dY)<1){
-      if(b.scared){
-        b.x=9;b.y=9;b.scared=false;score+=200;updateHUD();
-        queueDialogue('eatBook');dlgCooldown=200;
-      } else {
-        queueDialogue('death');loseLife();
+      if(b.scared&&pwrTimer>0){
+        // Grab the book — snap to dino position immediately
+        dragging=b;
+        dragging.x=dX;dragging.y=dY;
+        speechQueue=[];
+        queueDialogue('drag',true);
+        dlgCooldown=200;
+        SFX.drag();
+      } else if(!b.scared){
+        SFX.death();
+        if(dragging)dragging=null;
+        speechQueue=[];
+        queueDialogue('death',true);
+        dlgCooldown=200;
+        loseLife();
       }
     }
   });
 
-  if(pellets<=0){level++;queueDialogue('levelUp',400);initLevel();updateHUD();}
+  // Level win: all books captured
+  if(booksCaptured>=4){
+    level++;
+    Speech.setInsanity(Math.min(level-1,5));
+    SFX.levelUp();
+    speechQueue=[];
+    queueDialogue('levelUp',true);
+    dlgCooldown=300;
+    initLevel();updateHUD();
+  }
+}
+
+function captureBook(b){
+  b.captured=true;
+  b.x=PEN_CENTRE.x;b.y=PEN_CENTRE.y;
+  b.scared=false;
+  dragging=null;
+  booksCaptured++;
+  score+=500;
+  updateHUD();
+  SFX.capture();
+  speechQueue=[];
+  queueDialogue('capture',true);
+  dlgCooldown=200;
 }
 
 function loseLife(){
   lives--;updateHUD();
-  if(lives<=0){gameState='dead';setTimeout(()=>showOverlay('GAME OVER',score),1400);}
-  else{dX=9;dY=16;books.forEach(b=>{b.x=9;b.y=9;b.scared=false;});pwrTimer=0;}
+  if(lives<=0){gameState='dead';setTimeout(()=>showOverlay('GAME OVER',score),1500);}
+  else{
+    dX=9;dY=16;pwrTimer=0;dragging=null;
+    books.forEach((b,i)=>{
+      if(b.captured)return;
+      b.scared=false;
+      if(b.released){
+        // Send to scatter corner so they don't cluster on respawn
+        const t=b.scatterTarget;
+        b.x=t[0];b.y=t[1];
+        // Brief grace: delay chase mode
+        b.mode='scatter';b.modeT=180;
+      }
+    });
+  }
 }
 
 function moveBook(b){
   b.modeT--;
   if(b.modeT<=0){b.mode=b.mode==='chase'?'scatter':'chase';b.modeT=b.mode==='chase'?220:140;}
   const dirs=Object.entries(DIRS);
+
   if(b.scared){
+    // Flee from dino
     const valid=dirs.filter(([d,[dx,dy]])=>{
       if(d===OPP[b.dir])return false;
       const[nx,ny]=wrap(b.x+dx,b.y+dy);
-      return passable(nx,ny);
+      return passable(nx,ny)&&maze[ny][nx]!==4;
     });
     if(valid.length){const[nd,[dx,dy]]=valid[Math.floor(Math.random()*valid.length)];b.dir=nd;[b.x,b.y]=wrap(b.x+dx,b.y+dy);}
     return;
   }
+
+  // Chase or scatter
   const tgt=b.mode==='chase'?[dX,dY]:b.scatterTarget;
   let best=Infinity,bestD=null;
   dirs.forEach(([d,[dx,dy]])=>{
     if(d===OPP[b.dir])return;
     const[nx,ny]=wrap(b.x+dx,b.y+dy);
-    if(!passable(nx,ny))return;
+    if(!passable(nx,ny)||maze[ny][nx]===4)return;
     const dist=(nx-tgt[0])**2+(ny-tgt[1])**2;
     if(dist<best){best=dist;bestD=d;}
   });
@@ -456,194 +710,232 @@ function moveBook(b){
 //  DRAW
 // ═══════════════════════════════════════════════════════
 function draw(){
-  ctx.fillStyle='#08040c';
-  ctx.fillRect(0,0,CW,CH);
+  ctx.fillStyle='#08040c';ctx.fillRect(0,0,CW,CH);
   drawMaze();
   drawPellets();
-  drawDino();
+  drawPowerTimer();
   books.forEach(drawBook);
+  drawDino();
+  drawDragLine();
 }
 
 function drawMaze(){
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
     if(maze[r][c]===1){
       const x=c*TILE,y=r*TILE;
-      ctx.fillStyle='#180b2c';ctx.fillRect(x,y,TILE,TILE);
-      ctx.fillStyle='#1e0e38';ctx.fillRect(x+1,y+1,TILE-2,TILE-2);
-      ctx.strokeStyle='#5525a8';ctx.lineWidth=0.8;
-      ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
-      ctx.strokeStyle='rgba(85,35,160,0.3)';ctx.lineWidth=0.5;
+      ctx.fillStyle='#160a2a';ctx.fillRect(x,y,TILE,TILE);
+      ctx.fillStyle='#1c0e34';ctx.fillRect(x+1,y+1,TILE-2,TILE-2);
+      ctx.strokeStyle='#4a20a0';ctx.lineWidth=0.8;ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
+      // shelf lines
+      ctx.strokeStyle='rgba(74,32,160,0.25)';ctx.lineWidth=0.5;
       ctx.beginPath();ctx.moveTo(x+2,y+TILE*0.55);ctx.lineTo(x+TILE-2,y+TILE*0.55);ctx.stroke();
     }
+    // Pen
+    if(MAZE_TPL[r][c]===4){
+      const x=c*TILE,y=r*TILE;
+      ctx.fillStyle='rgba(80,20,120,0.18)';ctx.fillRect(x,y,TILE,TILE);
+    }
   }
+  // Pen border glow
+  const px=PEN_RECT.x1*TILE,py=PEN_RECT.y1*TILE;
+  const pw=(PEN_RECT.x2-PEN_RECT.x1+1)*TILE,ph=(PEN_RECT.y2-PEN_RECT.y1+1)*TILE;
+  ctx.strokeStyle='rgba(140,60,220,0.5)';ctx.lineWidth=1.5;
+  ctx.strokeRect(px,py,pw,ph);
+  // Pen label
+  ctx.fillStyle='rgba(180,120,255,0.4)';ctx.font='7px Courier New';ctx.textAlign='center';
+  ctx.fillText('PEN',px+pw/2,py+ph/2+2);
+  ctx.textAlign='left';
 }
 
 function drawPellets(){
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-    const t=maze[r][c]; // live state — disappears when eaten
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const t=maze[r][c];
     const cx=c*TILE+TILE/2,cy=r*TILE+TILE/2;
     if(t===2){
-      ctx.beginPath();ctx.arc(cx,cy,2.5,0,Math.PI*2);
-      ctx.fillStyle='#ffe890';ctx.shadowColor='#ffcc33';ctx.shadowBlur=6;
+      ctx.beginPath();ctx.arc(cx,cy,2.2,0,Math.PI*2);
+      ctx.fillStyle='#ffe890';ctx.shadowColor='#ffcc33';ctx.shadowBlur=5;
       ctx.fill();ctx.shadowBlur=0;
     } else if(t===3){
-      const p=0.68+0.32*Math.sin(animF*0.13);
-      ctx.beginPath();ctx.arc(cx,cy,5.8*p,0,Math.PI*2);
-      ctx.fillStyle='#ff88ff';ctx.shadowColor='#ff44ff';ctx.shadowBlur=16;
+      const p=0.7+0.3*Math.sin(animF*0.12);
+      ctx.beginPath();ctx.arc(cx,cy,6*p,0,Math.PI*2);
+      ctx.fillStyle='#ff88ff';ctx.shadowColor='#ff44ff';ctx.shadowBlur=14;
       ctx.fill();ctx.shadowBlur=0;
+      // '+' booster indicator
+      ctx.fillStyle='rgba(255,200,255,0.6)';ctx.font='bold 7px Courier New';ctx.textAlign='center';
+      ctx.fillText('+',cx,cy+2.5);ctx.textAlign='left';
     }
   }
 }
 
-// ═══════════════════════════════════════════════════════
-//  T-REX — Image Sprite Version
-// ═══════════════════════════════════════════════════════
+function drawPowerTimer(){
+  if(pwrTimer<=0)return;
+  const frac=pwrTimer/pwrMax;
+  const barW=CW-12,barH=5,barX=6,barY=CH-7;
+
+  // Background
+  ctx.fillStyle='rgba(40,15,70,0.7)';ctx.fillRect(barX,barY,barW,barH);
+  // Fill
+  const col=frac>0.4?'#aa44ff':(frac>0.2?'#ff88ff':'#ff4444');
+  ctx.fillStyle=col;ctx.fillRect(barX,barY,barW*frac,barH);
+  // Flicker when low
+  if(frac<0.2&&Math.floor(animF/6)%2===0){
+    ctx.fillStyle='rgba(255,200,100,0.3)';ctx.fillRect(barX,barY,barW*frac,barH);
+  }
+  // Border
+  ctx.strokeStyle='rgba(180,100,255,0.5)';ctx.lineWidth=0.8;ctx.strokeRect(barX,barY,barW,barH);
+
+  // Countdown text (seconds)
+  const secs=Math.ceil(pwrTimer/60);
+  ctx.fillStyle='rgba(255,200,255,0.85)';ctx.font='bold 8px Courier New';ctx.textAlign='center';
+  ctx.fillText('BOOSTER: '+secs+'s',CW/2,barY-2);ctx.textAlign='left';
+}
+
 function drawDino(){
-  const cx = dX * TILE + TILE / 2;
-  const cy = dY * TILE + TILE / 2;
-  
-  // Make the Dino bigger than a standard tile. Adjust this multiplier as needed.
-  const S = TILE * 1.8; 
+  const cx=dX*TILE+TILE/2,cy=dY*TILE+TILE/2;
+  const S=TILE*1.7;
+  ctx.save();ctx.translate(cx,cy);
+  if(dDir==='left')ctx.scale(-1,1);
+  else if(dDir==='up')ctx.rotate(-Math.PI/2);
+  else if(dDir==='down')ctx.rotate(Math.PI/2);
 
-  ctx.save();
-  ctx.translate(cx, cy);
-
-  // Handle rotation and mirroring so the Dino doesn't end up upside down
-  if (dDir === 'left') {
-    ctx.scale(-1, 1); // Flip horizontally
-  } else if (dDir === 'up') {
-    ctx.rotate(-Math.PI / 2); // Point up
-  } else if (dDir === 'down') {
-    ctx.rotate(Math.PI / 2); // Point down
-  }
-  // 'right' is the default assumption for the source image
-
-  // Determine which image to use based on the existing jawOpen boolean
-  const currentSprite = jawOpen ? DINO_IMG_OPEN : DINO_IMG_CLOSED;
-
-  if (currentSprite.complete && currentSprite.naturalWidth > 0) {
-    // Draw the image centered on the tile
-    ctx.drawImage(currentSprite, -S / 2, -S / 2, S, S);
+  // Draw simple dino if image not loaded
+  ctx.fillStyle=dragging?'#80ff40':'#5c9035';
+  if(jawOpen){
+    ctx.beginPath();ctx.arc(0,0,TILE/2,0.4,Math.PI*2-0.4);ctx.closePath();ctx.fill();
+    // Eye
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(TILE*0.15,-TILE*0.2,TILE*0.12,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#000';ctx.beginPath();ctx.arc(TILE*0.18,-TILE*0.2,TILE*0.06,0,Math.PI*2);ctx.fill();
   } else {
-    // Fallback if the image hasn't loaded yet
-    ctx.fillStyle = '#5c8035';
-    ctx.beginPath();
-    ctx.arc(0, 0, TILE/2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath();ctx.arc(0,0,TILE/2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(TILE*0.15,-TILE*0.2,TILE*0.12,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#000';ctx.beginPath();ctx.arc(TILE*0.18,-TILE*0.2,TILE*0.06,0,Math.PI*2);ctx.fill();
   }
-
+  // Drag glow
+  if(dragging){
+    ctx.strokeStyle='rgba(150,255,80,0.4)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(0,0,TILE/2+3,0,Math.PI*2);ctx.stroke();
+  }
   ctx.restore();
 }
+
+function drawDragLine(){
+  // Visual leash when dragging
+  if(!dragging)return;
+  const dcx=dX*TILE+TILE/2,dcy=dY*TILE+TILE/2;
+  const bcx=dragging.x*TILE+TILE/2,bcy=dragging.y*TILE+TILE/2;
+  ctx.save();
+  ctx.strokeStyle='rgba(150,255,80,0.35)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+  ctx.beginPath();ctx.moveTo(dcx,dcy);ctx.lineTo(bcx,bcy);ctx.stroke();
+  ctx.setLineDash([]);ctx.restore();
+}
+
 function drawBook(b){
-  const cx=b.x*TILE+TILE/2, cy=b.y*TILE+TILE/2;
-  const w=TILE*0.86, h=TILE*1.0;
-  const flicker=pwrTimer>0&&pwrTimer<80&&(Math.floor(animF/8)%2===0);
-  const scared=b.scared;
-  const col=scared?(flicker?'#ffffff':'#4455dd'):b.color;
+  if(b.captured){
+    // Fixed slot positions inside the pen, 2x2 grid
+    const slotX=[8,10,8,10][b.id];
+    const slotY=[9,9,10,10][b.id];
+    const cx=slotX*TILE+TILE/2,cy=slotY*TILE+TILE/2;
+    ctx.save();ctx.globalAlpha=0.7;
+    ctx.fillStyle=b.color;ctx.fillRect(cx-5,cy-7,10,14);
+    ctx.strokeStyle='rgba(200,150,255,0.6)';ctx.lineWidth=1;ctx.strokeRect(cx-5,cy-7,10,14);
+    ctx.globalAlpha=1;
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='8px Courier New';ctx.textAlign='center';
+    ctx.fillText('🔒',cx,cy+3);ctx.textAlign='left';
+    ctx.restore();
+    return;
+  }
 
-  ctx.save();
-  ctx.translate(cx,cy);
-  ctx.shadowColor=scared?'#5566ff':b.color;
-  ctx.shadowBlur=scared?10:8;
+  // Waiting inside pen — bobbing with countdown
+  if(!b.released){
+    const slot=b.id; // 0-3
+    const cx=(PEN_RECT.x1+1+(slot%2)*2)*TILE+TILE/2;
+    const cy=(PEN_RECT.y1+1+Math.floor(slot/2))*TILE+TILE/2+Math.sin(animF*0.15+slot)*3;
+    const secs=Math.ceil(b.releaseTimer/60);
+    ctx.save();ctx.globalAlpha=0.55;
+    // Mini book
+    ctx.fillStyle=b.color;ctx.fillRect(cx-5,cy-7,10,14);
+    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=0.8;ctx.strokeRect(cx-5,cy-7,10,14);
+    ctx.globalAlpha=1;
+    // Countdown
+    ctx.fillStyle='rgba(255,240,180,0.9)';ctx.font='bold 7px Courier New';ctx.textAlign='center';
+    ctx.fillText(secs+'s',cx,cy+18);ctx.textAlign='left';
+    ctx.restore();
+    return;
+  }
 
-  // ── ghost silhouette path ──
+  const cx=b.x*TILE+TILE/2,cy=b.y*TILE+TILE/2;
+  const w=TILE*0.82,h=TILE*0.96;
+  const scared=b.scared&&pwrTimer>0;
+  const flicker=pwrTimer>0&&pwrTimer<70&&(Math.floor(animF/6)%2===0);
+  const isDragged=b===dragging;
+
+  let col=scared?(flicker?'#ffffff':'#4455ee'):b.color;
+  if(isDragged)col='#ccff88';
+
+  ctx.save();ctx.translate(cx,cy);
+  if(isDragged){ctx.shadowColor='#88ff44';ctx.shadowBlur=12;}
+  else{ctx.shadowColor=scared?'#5566ff':b.color;ctx.shadowBlur=scared?8:6;}
+
   const L=-w/2,T=-h/2,B=h/2;
-  const scallops=3,sW=w/scallops;
+  const sc=3,sW=w/sc;
+
+  // Book shape
   ctx.beginPath();
   ctx.arc(0,T+w/2,w/2,Math.PI,0,false);
   ctx.lineTo(w/2,B);
-  for(let i=scallops-1;i>=0;i--){
-    ctx.arc(L+sW*(i+0.5),B,sW/2,0,Math.PI,true);
-  }
-  ctx.lineTo(L,T+w/2);
-  ctx.closePath();
+  for(let i=sc-1;i>=0;i--)ctx.arc(L+sW*(i+0.5),B,sW/2,0,Math.PI,true);
+  ctx.lineTo(L,T+w/2);ctx.closePath();
+  ctx.fillStyle=col;ctx.fill();
 
-  // clip to ghost shape for image
-  ctx.save();
-  ctx.clip();
-
-  if(!scared){
-  const img = bookImgs[b.imgIdx];
-
-  if(img.complete && img.naturalWidth > 0){
-
-    ctx.drawImage(img, -8, -10, 16, 20);
-
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = b.color;
-    ctx.fillRect(-8, -10, 16, 20);
-
-    ctx.globalCompositeOperation = 'source-over';
-
-  } else {
-
-    ctx.fillStyle = col;
-    ctx.fillRect(L-2,T-2,w+4,h+4);
-
-  }
-
-} else {
-          // scared — blue tint
-          ctx.fillStyle=col;
-          ctx.fillRect(L-2,T-2,w+4,h+4);
-        }
-        ctx.restore(); 
-  
-  // ghost outline stroke on top
+  // Border
   ctx.beginPath();
-  ctx.arc(0,T+w/2,w/2,Math.PI,0,false);
-  ctx.lineTo(w/2,B);
-  for(let i=scallops-1;i>=0;i--){ctx.arc(L+sW*(i+0.5),B,sW/2,0,Math.PI,true);}
-  ctx.lineTo(L,T+w/2);
-  ctx.closePath();
-  ctx.strokeStyle=scared?'#8899ff':darken(b.color,40);
-  ctx.lineWidth=1.2;ctx.stroke();
+  ctx.arc(0,T+w/2,w/2,Math.PI,0,false);ctx.lineTo(w/2,B);
+  for(let i=sc-1;i>=0;i--)ctx.arc(L+sW*(i+0.5),B,sW/2,0,Math.PI,true);
+  ctx.lineTo(L,T+w/2);ctx.closePath();
+  ctx.strokeStyle=scared?'#8899ff':darken(b.color,40);ctx.lineWidth=1.2;ctx.stroke();
   ctx.shadowBlur=0;
 
-  // ── haunted eyes (always drawn on top of image) ──
   const eyeY=T+w*0.38;
   if(!scared){
-    [[-w*0.2,eyeY],[w*0.2,eyeY]].forEach(([ex,ey])=>{
-      // white
-      ctx.beginPath();ctx.ellipse(ex,ey,w*0.13,w*0.15,0,0,Math.PI*2);
-      ctx.fillStyle='rgba(255,255,255,0.92)';ctx.fill();
-      // iris tracks dino
+    [[-w*0.22,eyeY],[w*0.22,eyeY]].forEach(([ex,ey])=>{
+      ctx.beginPath();ctx.ellipse(ex,ey,w*0.12,w*0.14,0,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,0.9)';ctx.fill();
       const ang=Math.atan2(dY-b.y,dX-b.x);
-      const ix=ex+Math.cos(ang)*w*0.04, iy=ey+Math.sin(ang)*w*0.04;
-      ctx.beginPath();ctx.ellipse(ix,iy,w*0.072,w*0.09,0,0,Math.PI*2);
-      ctx.fillStyle='#1133bb';ctx.fill();
-      ctx.beginPath();ctx.ellipse(ix,iy+w*0.01,w*0.036,w*0.045,0,0,Math.PI*2);
+      const ix=ex+Math.cos(ang)*w*0.03,iy=ey+Math.sin(ang)*w*0.03;
+      ctx.beginPath();ctx.ellipse(ix,iy,w*0.065,w*0.08,0,0,Math.PI*2);
+      ctx.fillStyle='#1133cc';ctx.fill();
+      ctx.beginPath();ctx.ellipse(ix,iy,w*0.03,w*0.04,0,0,Math.PI*2);
       ctx.fillStyle='#000';ctx.fill();
-      // gleam
-      ctx.beginPath();ctx.arc(ex-w*0.05,ey-w*0.06,w*0.025,0,Math.PI*2);
-      ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fill();
     });
+    // Mouth
+    const mY=T+h*0.65;
+    ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(L+w*0.28,mY);ctx.quadraticCurveTo(0,mY-3,w/2-w*0.28,mY);ctx.stroke();
   } else {
-    // X eyes when scared
-    [[-w*0.2,eyeY],[w*0.2,eyeY]].forEach(([ex,ey])=>{
-      ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=2;ctx.lineCap='round';
-      ctx.beginPath();ctx.moveTo(ex-w*0.09,ey-w*0.09);ctx.lineTo(ex+w*0.09,ey+w*0.09);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(ex+w*0.09,ey-w*0.09);ctx.lineTo(ex-w*0.09,ey+w*0.09);ctx.stroke();
+    // Scared eyes (Xs)
+    [[-w*0.22,eyeY],[w*0.22,eyeY]].forEach(([ex,ey])=>{
+      ctx.strokeStyle='rgba(255,255,255,0.88)';ctx.lineWidth=1.8;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(ex-w*0.08,ey-w*0.08);ctx.lineTo(ex+w*0.08,ey+w*0.08);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(ex+w*0.08,ey-w*0.08);ctx.lineTo(ex-w*0.08,ey+w*0.08);ctx.stroke();
     });
-    // squiggly mouth
+    // Scared mouth wavy
     const mY=T+h*0.62;
     ctx.beginPath();ctx.moveTo(L+w*0.2,mY);
-    for(let i=0;i<5;i++){ctx.lineTo(L+w*0.2+i*(w*0.6/4),mY+(i%2===0?3:-3));}
-    ctx.strokeStyle='rgba(255,255,255,0.65)';ctx.lineWidth=1.5;ctx.stroke();
+    for(let i=0;i<5;i++)ctx.lineTo(L+w*0.2+i*(w*0.6/4),mY+(i%2===0?3:-3));
+    ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.4;ctx.stroke();
   }
+
+  // Label in book
+  ctx.fillStyle='rgba(0,0,0,0.35)';ctx.font='bold 5px Courier New';ctx.textAlign='center';
+  ctx.fillText(b.label[0],0,T+h*0.48);ctx.textAlign='left';
 
   ctx.restore();
 }
 
-// ═══════════════════════════════════════════════════════
-//  COLOR UTILS
-// ═══════════════════════════════════════════════════════
 function clamp(v){return Math.max(0,Math.min(255,Math.round(v)));}
 function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
-function hexToRgbStr(h){return hexToRgb(h).join(',');}
 function rgbToHex([r,g,b]){return'#'+[r,g,b].map(v=>clamp(v).toString(16).padStart(2,'0')).join('');}
 function darken(h,a){return rgbToHex(hexToRgb(h).map(v=>v-a));}
-function lighten(h,a){return rgbToHex(hexToRgb(h).map(v=>v+a));}
 
 // ═══════════════════════════════════════════════════════
 //  HUD + OVERLAY
@@ -652,14 +944,20 @@ function updateHUD(){
   document.getElementById('sc').textContent=score;
   document.getElementById('lf').textContent=lives;
   document.getElementById('lv').textContent=level;
+  document.getElementById('bk').textContent=booksCaptured;
 }
+
 function showOverlay(title,sc){
+  hideDialogue();
   const ov=document.getElementById('overlay');
-  ov.querySelector('h1').textContent=title==='GAME OVER'?'💀 GAME OVER':'🦕 DINO-PAC';
-  ov.querySelector('.sub').textContent=title==='GAME OVER'?'The encyclopedias won…':'Haunted Library';
+  const isOver=title==='GAME OVER';
+  ov.querySelector('h1').textContent=isOver?'💀 GAME OVER':'🦕 DINO-PAC';
+  ov.querySelector('.sub').textContent=isOver?'The encyclopaedias won. Again.':'Haunted Library';
   const fs=document.getElementById('final-score');
+  const bc=document.getElementById('books-caught');
   if(sc!==undefined){fs.style.display='block';fs.textContent='SCORE: '+sc;}else fs.style.display='none';
-  document.getElementById('btn-start').textContent=title==='GAME OVER'?'TRY AGAIN':'CHOMP!';
+  if(isOver){bc.style.display='block';bc.textContent='Books captured: '+booksCaptured+' / 4 · Level '+level;}else bc.style.display='none';
+  document.getElementById('btn-start').textContent=isOver?'TRY AGAIN':'CHOMP!';
   ov.classList.remove('hidden');
 }
 
@@ -682,9 +980,15 @@ canvas.addEventListener('touchend',e=>{
   if(Math.abs(dx)>Math.abs(dy))dNext=dx>0?'right':'left';
   else dNext=dy>0?'down':'up';
 },{passive:true});
+
+let loopRunning=false;
 document.getElementById('btn-start').addEventListener('click',()=>{
+  SFX.start();
   document.getElementById('overlay').classList.add('hidden');
-  hideDialogue();initGame();lastT=performance.now();loop(lastT);
+  hideDialogue();
+  initGame();
+  lastT=performance.now();
+  if(!loopRunning){loopRunning=true;requestAnimationFrame(loop);}
 });
 
 // ═══════════════════════════════════════════════════════
@@ -694,40 +998,35 @@ function loop(ts){
   const dt=ts-lastT;lastT=ts;
   update(dt);draw();
   if(gameState==='playing')requestAnimationFrame(loop);
+  else loopRunning=false;
 }
 
-// ═══════════════════════════════════════════════════════
-//  IDLE TITLE SCREEN
-// ═══════════════════════════════════════════════════════
+// Idle draw before game starts
 let idleF=0;
 function idleDraw(){
-  idleF++;
-  
-  // ONLY draw the idle screen if we aren't actively playing
-  if(gameState !== 'playing') {
-    ctx.fillStyle='#08040c';ctx.fillRect(0,0,CW,CH);
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-      const t=MAZE_TPL[r][c];
-      if(t===1){
-        const x=c*TILE,y=r*TILE;
-        ctx.fillStyle='#180b2c';ctx.fillRect(x,y,TILE,TILE);
-        ctx.fillStyle='#1e0e38';ctx.fillRect(x+1,y+1,TILE-2,TILE-2);
-        ctx.strokeStyle='#5525a8';ctx.lineWidth=0.8;ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
-      }
-      const pcx=c*TILE+TILE/2,pcy=r*TILE+TILE/2;
-      if(t===2){
-        ctx.beginPath();ctx.arc(pcx,pcy,2.5,0,Math.PI*2);
-        ctx.fillStyle='#ffe890';ctx.shadowColor='#ffcc33';ctx.shadowBlur=6;
-        ctx.fill();ctx.shadowBlur=0;
-      } else if(t===3){
-        const p=0.68+0.32*Math.sin(idleF*0.1);
-        ctx.beginPath();ctx.arc(pcx,pcy,5.8*p,0,Math.PI*2);
-        ctx.fillStyle='#ff88ff';ctx.shadowColor='#ff44ff';ctx.shadowBlur=16;
-        ctx.fill();ctx.shadowBlur=0;
-      }
-    }
-  }
-  requestAnimationFrame(idleDraw);
+  idleF++;
+  if(gameState!=='playing'){
+    ctx.fillStyle='#08040c';ctx.fillRect(0,0,CW,CH);
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const t=MAZE_TPL[r][c];
+      if(t===1){
+        const x=c*TILE,y=r*TILE;
+        ctx.fillStyle='#160a2a';ctx.fillRect(x,y,TILE,TILE);
+        ctx.fillStyle='#1c0e34';ctx.fillRect(x+1,y+1,TILE-2,TILE-2);
+        ctx.strokeStyle='#4a20a0';ctx.lineWidth=0.8;ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
+      }
+      const pcx=c*TILE+TILE/2,pcy=r*TILE+TILE/2;
+      if(t===2){
+        ctx.beginPath();ctx.arc(pcx,pcy,2.2,0,Math.PI*2);
+        ctx.fillStyle='#ffe890';ctx.shadowColor='#ffcc33';ctx.shadowBlur=5;ctx.fill();ctx.shadowBlur=0;
+      } else if(t===3){
+        const p=0.7+0.3*Math.sin(idleF*0.1);
+        ctx.beginPath();ctx.arc(pcx,pcy,6*p,0,Math.PI*2);
+        ctx.fillStyle='#ff88ff';ctx.shadowColor='#ff44ff';ctx.shadowBlur=14;ctx.fill();ctx.shadowBlur=0;
+      }
+    }
+  }
+  requestAnimationFrame(idleDraw);
 }
 idleDraw();
 </script>
