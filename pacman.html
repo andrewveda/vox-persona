@@ -9,7 +9,8 @@
 body{
   background:#09060f;
   display:flex;flex-direction:column;align-items:center;
-  min-height:100vh;font-family:'Courier New',monospace;
+  height:100vh;max-height:100vh;
+  font-family:'Courier New',monospace;
   overflow:hidden;touch-action:none;user-select:none;
 }
 #header{
@@ -133,14 +134,19 @@ canvas{display:block;}
 const DINO_OPEN=new Image();
 DINO_OPEN.crossOrigin='anonymous';
 DINO_OPEN.src='https://cdn.jsdelivr.net/gh/andrewveda/vox-persona@main/dino_open_jaws.png';
+DINO_OPEN.onerror=()=>{ DINO_OPEN._failed=true; };
 
 const DINO_CLOSED=new Image();
 DINO_CLOSED.crossOrigin='anonymous';
 DINO_CLOSED.src='https://cdn.jsdelivr.net/gh/andrewveda/vox-persona@main/dino_closed_mouth.png';
+DINO_CLOSED.onerror=()=>{ DINO_CLOSED._failed=true; };
 
 const DK_LOGO=new Image();
 DK_LOGO.crossOrigin='anonymous';
 DK_LOGO.src='https://cdn.jsdelivr.net/gh/andrewveda/1@main/DK_logo.png';
+DK_LOGO.onerror=()=>{ DK_LOGO._failed=true; };
+
+function imgOk(img){ return img.complete&&img.naturalWidth>0&&!img._failed; }
 
 // ═══════════════════════════════════════════════════════
 //  SPEECH
@@ -449,11 +455,13 @@ const ctx=canvas.getContext('2d');
 let scale=1;
 
 function resize(){
-  const totalH=window.innerHeight;
-  const availH=totalH-34-68-160;
+  const hdr=document.getElementById('header').offsetHeight||34;
+  const dlg=document.getElementById('dialogue-area').offsetHeight||68;
+  const dpd=document.getElementById('dpad').offsetHeight||165;
+  const availH=window.innerHeight-hdr-dlg-dpd-4;
   const availW=window.innerWidth;
-  scale=Math.min(availW/CW,availH/CH,2.2);
-  scale=Math.max(scale,0.65);
+  scale=Math.min(availW/CW,availH/CH,2.5);
+  scale=Math.max(scale,0.55);
   canvas.width=CW;canvas.height=CH;
   canvas.style.width=(CW*scale)+'px';
   canvas.style.height=(CH*scale)+'px';
@@ -761,16 +769,16 @@ function drawMaze(){
       ctx.strokeStyle='rgba(74,32,160,0.25)';ctx.lineWidth=0.5;
       ctx.beginPath();ctx.moveTo(x+2,y+TILE*0.55);ctx.lineTo(x+TILE-2,y+TILE*0.55);ctx.stroke();
     }
-    // Pen
+    // Pen tiles — very subtle tint
     if(MAZE_TPL[r][c]===4){
       const x=c*TILE,y=r*TILE;
-      ctx.fillStyle='rgba(80,20,120,0.18)';ctx.fillRect(x,y,TILE,TILE);
+      ctx.fillStyle='rgba(60,15,90,0.12)';ctx.fillRect(x,y,TILE,TILE);
     }
   }
   // Pen border glow
   const px=PEN_RECT.x1*TILE,py=PEN_RECT.y1*TILE;
   const pw=(PEN_RECT.x2-PEN_RECT.x1+1)*TILE,ph=(PEN_RECT.y2-PEN_RECT.y1+1)*TILE;
-  ctx.strokeStyle='rgba(140,60,220,0.5)';ctx.lineWidth=1.5;
+  ctx.strokeStyle='rgba(120,50,200,0.3)';ctx.lineWidth=1;
   ctx.strokeRect(px,py,pw,ph);
   // Pen entrance markers — pulsing arrows at (8,7) and (10,7)
   const pulse=0.5+0.5*Math.sin(animF*0.12);
@@ -790,16 +798,19 @@ function drawPellets(){
     const t=maze[r][c];
     const cx=c*TILE+TILE/2,cy=r*TILE+TILE/2;
     if(t===2){
-      ctx.beginPath();ctx.arc(cx,cy,2.2,0,Math.PI*2);
-      ctx.fillStyle='#ffe890';ctx.shadowColor='#ffcc33';ctx.shadowBlur=5;
-      ctx.fill();ctx.shadowBlur=0;
+      ctx.save();
+      ctx.shadowColor='#ffcc33';ctx.shadowBlur=6;
+      ctx.fillStyle='#ffe890';
+      ctx.beginPath();ctx.arc(cx,cy,2.5,0,Math.PI*2);ctx.fill();
+      ctx.restore();
     } else if(t===3){
       const p=0.7+0.3*Math.sin(animF*0.12);
-      ctx.beginPath();ctx.arc(cx,cy,6*p,0,Math.PI*2);
-      ctx.fillStyle='#ff88ff';ctx.shadowColor='#ff44ff';ctx.shadowBlur=14;
-      ctx.fill();ctx.shadowBlur=0;
-      // '+' booster indicator
-      ctx.fillStyle='rgba(255,200,255,0.6)';ctx.font='bold 7px Courier New';ctx.textAlign='center';
+      ctx.save();
+      ctx.shadowColor='#ff44ff';ctx.shadowBlur=16;
+      ctx.fillStyle='#ff88ff';
+      ctx.beginPath();ctx.arc(cx,cy,6*p,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+      ctx.fillStyle='rgba(255,200,255,0.7)';ctx.font='bold 7px Courier New';ctx.textAlign='center';
       ctx.fillText('+',cx,cy+2.5);ctx.textAlign='left';
     }
   }
@@ -837,7 +848,7 @@ function drawDino(){
   else if(dDir==='down')ctx.rotate(Math.PI/2);
 
   const sprite=jawOpen?DINO_OPEN:DINO_CLOSED;
-  if(sprite.complete&&sprite.naturalWidth>0){
+  if(imgOk(sprite)){
     ctx.drawImage(sprite,-S/2,-S/2,S,S);
     // Tint green when dragging
     if(dragging){
@@ -933,7 +944,7 @@ function drawBook(b){
   for(let i=sc-1;i>=0;i--)ctx.arc(L+sW*(i+0.5),B,sW/2,0,Math.PI,true);
   ctx.lineTo(L,T+w/2);ctx.closePath();
 
-  if(!scared&&!isDragged&&DK_LOGO.complete&&DK_LOGO.naturalWidth>0){
+  if(!scared&&!isDragged&&imgOk(DK_LOGO)){
     // Fill base color first
     ctx.fillStyle=col;ctx.fill();
     // Clip and draw DK logo, then multiply tint with book color
@@ -1076,12 +1087,18 @@ function idleDraw(){
       }
       const pcx=c*TILE+TILE/2,pcy=r*TILE+TILE/2;
       if(t===2){
-        ctx.beginPath();ctx.arc(pcx,pcy,2.2,0,Math.PI*2);
-        ctx.fillStyle='#ffe890';ctx.shadowColor='#ffcc33';ctx.shadowBlur=5;ctx.fill();ctx.shadowBlur=0;
+        ctx.save();
+        ctx.shadowColor='#ffcc33';ctx.shadowBlur=5;
+        ctx.fillStyle='#ffe890';
+        ctx.beginPath();ctx.arc(pcx,pcy,2.5,0,Math.PI*2);ctx.fill();
+        ctx.restore();
       } else if(t===3){
         const p=0.7+0.3*Math.sin(idleF*0.1);
-        ctx.beginPath();ctx.arc(pcx,pcy,6*p,0,Math.PI*2);
-        ctx.fillStyle='#ff88ff';ctx.shadowColor='#ff44ff';ctx.shadowBlur=14;ctx.fill();ctx.shadowBlur=0;
+        ctx.save();
+        ctx.shadowColor='#ff44ff';ctx.shadowBlur=14;
+        ctx.fillStyle='#ff88ff';
+        ctx.beginPath();ctx.arc(pcx,pcy,6*p,0,Math.PI*2);ctx.fill();
+        ctx.restore();
       }
     }
   }
