@@ -1,4 +1,4 @@
- /* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    A QUOTE A DAY — style.css
    Contributor Hall of Fame + compact masthead
 ═══════════════════════════════════════════ */
@@ -854,6 +854,11 @@ body {
 .btn-submit:hover { background: var(--gold); color: white !important; border-color: var(--gold); }
 
 .giscus-mount { padding: 0; }
+
+/* Compact bar + search hidden by default — only shown on mobile when scrolled */
+.masthead-compact-bar { display: none; }
+.compact-search-bar   { display: none; }
+.filter-sheet-backdrop { display: none; }
 
 /* ─── 9. DIRECTORY PANEL ─── */
 .dir-backdrop {
